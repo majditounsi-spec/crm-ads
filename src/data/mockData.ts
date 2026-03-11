@@ -1,4 +1,4 @@
-import { Project, TimeEntry, Automation } from '@/types/crm';
+import { Project, TimeEntry, Automation, Task } from '@/types/crm';
 
 export const mockProjects: Project[] = [
   {
