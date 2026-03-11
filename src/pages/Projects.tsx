@@ -15,6 +15,7 @@ import { Project, ProjectStatus, ProjectPriority } from '@/types/crm';
 import { toast } from 'sonner';
 
 export default function Projects() {
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>(mockProjects);
   const [filter, setFilter] = useState<ProjectStatus | 'all'>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
