@@ -15,6 +15,15 @@ export interface Project {
   createdAt: string;
 }
 
+export interface Task {
+  id: string;
+  projectId: string;
+  title: string;
+  completed: boolean;
+  assignee: string;
+  createdAt: string;
+}
+
 export interface TimeEntry {
   id: string;
   projectId: string;
