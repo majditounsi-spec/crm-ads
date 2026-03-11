@@ -38,13 +38,8 @@ export default function ProjectDetail() {
     );
   }
 
-  const [project, setProject] = useState<Project>(initialProject);
-  const [tasks, setTasks] = useState<Task[]>(mockTasks.filter(t => t.projectId === id));
-  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>(mockTimeEntries.filter(t => t.projectId === id));
 
-  const [newTaskTitle, setNewTaskTitle] = useState('');
-  const [timeDialogOpen, setTimeDialogOpen] = useState(false);
-  const [newTime, setNewTime] = useState({ description: '', hours: '', date: new Date().toISOString().split('T')[0] });
+
 
   const totalHours = timeEntries.reduce((sum, e) => sum + e.hours, 0);
   const completedTasks = tasks.filter(t => t.completed).length;
