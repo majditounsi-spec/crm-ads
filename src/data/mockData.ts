@@ -1,4 +1,4 @@
-import { Project, TimeEntry, Automation } from '@/types/crm';
+import { Project, TimeEntry, Automation, Task } from '@/types/crm';
 
 export const mockProjects: Project[] = [
   {
@@ -46,6 +46,19 @@ export const mockTimeEntries: TimeEntry[] = [
   { id: '4', projectId: '4', projectName: 'Webbdesign - GreenEnergy', description: 'Wireframes', hours: 6, date: '2026-03-08', assignee: 'Johan P.' },
   { id: '5', projectId: '6', projectName: 'Varumärkesstrategi - StartupXYZ', description: 'Kundmöte', hours: 2, date: '2026-03-10', assignee: 'Erik L.' },
   { id: '6', projectId: '3', projectName: 'Google Ads - FashionBrand', description: 'Kampanjoptimering', hours: 3, date: '2026-03-07', assignee: 'Maria K.' },
+];
+
+export const mockTasks: Task[] = [
+  { id: 't1', projectId: '1', title: 'Sökordsanalys för målsidor', completed: true, assignee: 'Anna S.', createdAt: '2026-02-05' },
+  { id: 't2', projectId: '1', title: 'Skapa innehållsplan', completed: false, assignee: 'Anna S.', createdAt: '2026-02-10' },
+  { id: 't3', projectId: '1', title: 'Teknisk SEO-audit', completed: false, assignee: 'Erik L.', createdAt: '2026-02-15' },
+  { id: 't4', projectId: '2', title: 'Målgruppsanalys', completed: true, assignee: 'Erik L.', createdAt: '2026-01-20' },
+  { id: 't5', projectId: '2', title: 'Skapa content-kalender', completed: true, assignee: 'Erik L.', createdAt: '2026-01-25' },
+  { id: 't6', projectId: '4', title: 'Wireframes för startsida', completed: true, assignee: 'Johan P.', createdAt: '2026-02-12' },
+  { id: 't7', projectId: '4', title: 'Design av undersidor', completed: false, assignee: 'Johan P.', createdAt: '2026-02-20' },
+  { id: 't8', projectId: '4', title: 'Responsiv anpassning', completed: false, assignee: 'Johan P.', createdAt: '2026-03-01' },
+  { id: 't9', projectId: '6', title: 'Varumärkesworkshop', completed: true, assignee: 'Erik L.', createdAt: '2026-03-06' },
+  { id: 't10', projectId: '6', title: 'Logotypförslag', completed: false, assignee: 'Maria K.', createdAt: '2026-03-08' },
 ];
 
 export const mockAutomations: Automation[] = [

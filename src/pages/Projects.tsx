@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Filter, MoreHorizontal } from 'lucide-react';
 import { StatusBadge } from '@/components/StatusBadge';
 import { PriorityBadge } from '@/components/PriorityBadge';
@@ -14,6 +15,7 @@ import { Project, ProjectStatus, ProjectPriority } from '@/types/crm';
 import { toast } from 'sonner';
 
 export default function Projects() {
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>(mockProjects);
   const [filter, setFilter] = useState<ProjectStatus | 'all'>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -130,7 +132,7 @@ export default function Projects() {
               {filtered.map((project, i) => {
                 const pct = Math.round((project.spent / project.budget) * 100);
                 return (
-                  <motion.tr key={project.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }} className="hover:bg-muted/30 transition-colors">
+                  <motion.tr key={project.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }} className="hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => navigate(`/projects/${project.id}`)}>
                     <td className="px-5 py-3.5">
                       <p className="font-medium text-sm">{project.name}</p>
                       <div className="flex gap-1.5 mt-1">
