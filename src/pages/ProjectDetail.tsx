@@ -18,8 +18,15 @@ import { toast } from 'sonner';
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-
   const initialProject = mockProjects.find(p => p.id === id);
+
+  const [project, setProject] = useState<Project>(initialProject || mockProjects[0]);
+  const [tasks, setTasks] = useState<Task[]>(mockTasks.filter(t => t.projectId === id));
+  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>(mockTimeEntries.filter(t => t.projectId === id));
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [timeDialogOpen, setTimeDialogOpen] = useState(false);
+  const [newTime, setNewTime] = useState({ description: '', hours: '', date: new Date().toISOString().split('T')[0] });
+
   if (!initialProject) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
