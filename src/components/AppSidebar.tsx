@@ -1,4 +1,4 @@
-import { LayoutDashboard, FolderKanban, Clock, Zap, Settings, ChevronLeft } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, Clock, Zap, Settings, ChevronLeft, Users } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import {
@@ -18,6 +18,7 @@ import {
 const navItems = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
   { title: 'Projekt', url: '/projects', icon: FolderKanban },
+  { title: 'Kontakter', url: '/contacts', icon: Users },
   { title: 'Tidloggning', url: '/time', icon: Clock },
   { title: 'Automationer', url: '/automations', icon: Zap },
 ];

@@ -42,3 +42,22 @@ export interface Automation {
   active: boolean;
   lastRun?: string;
 }
+
+export type ContactStatus = 'active' | 'paused' | 'completed' | 'pending';
+
+export interface Contact {
+  id: string;
+  name: string;
+  website: string;
+  platform: string;
+  budget: number;
+  rating: number;
+  contactPerson: string;
+  seller: string;
+  service: string;
+  status: ContactStatus;
+  startDate: string;
+  endDate: string;
+  comment: string;
+  hasReport: boolean;
+}
