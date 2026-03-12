@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Filter, MoreHorizontal } from 'lucide-react';
+import { Plus, Filter, Pencil, Check, X } from 'lucide-react';
 import { StatusBadge } from '@/components/StatusBadge';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { mockProjects } from '@/data/mockData';
@@ -11,17 +11,61 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Project, ProjectStatus, ProjectPriority } from '@/types/crm';
 import { toast } from 'sonner';
+
+const statusOptions: { value: ProjectStatus; label: string }[] = [
+  { value: 'pending', label: 'Väntande' },
+  { value: 'working', label: 'Pågår' },
+  { value: 'review', label: 'Granskning' },
+  { value: 'done', label: 'Klar' },
+  { value: 'stuck', label: 'Blockerad' },
+];
+
+const priorityOptions: { value: ProjectPriority; label: string }[] = [
+  { value: 'low', label: 'Låg' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'Hög' },
+  { value: 'critical', label: 'Kritisk' },
+];
 
 export default function Projects() {
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>(mockProjects);
   const [filter, setFilter] = useState<ProjectStatus | 'all'>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editData, setEditData] = useState<Partial<Project>>({});
   const [newProject, setNewProject] = useState({ name: '', client: '', status: 'pending' as ProjectStatus, priority: 'medium' as ProjectPriority, deadline: '', budget: '' });
 
   const filtered = filter === 'all' ? projects : projects.filter(p => p.status === filter);
+
+  const updateProject = (id: string, updates: Partial<Project>) => {
+    setProjects(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+  };
+
+  const startEdit = (e: React.MouseEvent, project: Project) => {
+    e.stopPropagation();
+    setEditingId(project.id);
+    setEditData({ name: project.name, client: project.client, assignee: project.assignee, deadline: project.deadline, budget: project.budget });
+  };
+
+  const saveEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (editingId) {
+      updateProject(editingId, editData);
+      toast.success('Projekt uppdaterat!');
+      setEditingId(null);
+      setEditData({});
+    }
+  };
+
+  const cancelEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingId(null);
+    setEditData({});
+  };
 
   const handleCreate = () => {
     if (!newProject.name || !newProject.client) {
@@ -47,6 +91,8 @@ export default function Projects() {
     toast.success('Projekt skapat!');
   };
 
+  const isEditing = (id: string) => editingId === id;
+
   return (
     <div className="space-y-6 max-w-7xl">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -62,11 +108,7 @@ export default function Projects() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Alla</SelectItem>
-              <SelectItem value="working">Pågår</SelectItem>
-              <SelectItem value="pending">Väntande</SelectItem>
-              <SelectItem value="review">Granskning</SelectItem>
-              <SelectItem value="done">Klar</SelectItem>
-              <SelectItem value="stuck">Blockerad</SelectItem>
+              {statusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
             </SelectContent>
           </Select>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -95,10 +137,7 @@ export default function Projects() {
                     <Select value={newProject.priority} onValueChange={v => setNewProject({...newProject, priority: v as ProjectPriority})}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="low">Låg</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="high">Hög</SelectItem>
-                        <SelectItem value="critical">Kritisk</SelectItem>
+                        {priorityOptions.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
@@ -126,35 +165,139 @@ export default function Projects() {
                 <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Ansvarig</th>
                 <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Budget</th>
                 <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Deadline</th>
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3 w-20"></th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {filtered.map((project, i) => {
-                const pct = Math.round((project.spent / project.budget) * 100);
+                const pct = project.budget > 0 ? Math.round((project.spent / project.budget) * 100) : 0;
+                const editing = isEditing(project.id);
                 return (
-                  <motion.tr key={project.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }} className="hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => navigate(`/projects/${project.id}`)}>
+                  <motion.tr
+                    key={project.id}
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.03 }}
+                    className="group hover:bg-muted/30 transition-colors cursor-pointer"
+                    onClick={() => !editing && navigate(`/projects/${project.id}`)}
+                  >
                     <td className="px-5 py-3.5">
-                      <p className="font-medium text-sm">{project.name}</p>
-                      <div className="flex gap-1.5 mt-1">
-                        {project.tags.map(tag => (
-                          <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full bg-accent text-accent-foreground font-medium">{tag}</span>
-                        ))}
-                      </div>
+                      {editing ? (
+                        <Input
+                          value={editData.name || ''}
+                          onChange={e => setEditData({ ...editData, name: e.target.value })}
+                          className="h-8 text-sm"
+                          onClick={e => e.stopPropagation()}
+                        />
+                      ) : (
+                        <>
+                          <p className="font-medium text-sm">{project.name}</p>
+                          <div className="flex gap-1.5 mt-1">
+                            {project.tags.map(tag => (
+                              <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full bg-accent text-accent-foreground font-medium">{tag}</span>
+                            ))}
+                          </div>
+                        </>
+                      )}
                     </td>
-                    <td className="px-5 py-3.5 text-sm">{project.client}</td>
-                    <td className="px-5 py-3.5"><StatusBadge status={project.status} /></td>
-                    <td className="px-5 py-3.5"><PriorityBadge priority={project.priority} /></td>
-                    <td className="px-5 py-3.5 text-sm">{project.assignee}</td>
+                    <td className="px-5 py-3.5 text-sm">
+                      {editing ? (
+                        <Input
+                          value={editData.client || ''}
+                          onChange={e => setEditData({ ...editData, client: e.target.value })}
+                          className="h-8 text-sm"
+                          onClick={e => e.stopPropagation()}
+                        />
+                      ) : project.client}
+                    </td>
+                    <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
+                      <Select
+                        value={project.status}
+                        onValueChange={v => {
+                          updateProject(project.id, { status: v as ProjectStatus });
+                          toast.success('Status uppdaterad!');
+                        }}
+                      >
+                        <SelectTrigger className="h-8 w-32 border-none bg-transparent p-0 shadow-none focus:ring-0 [&>svg]:opacity-0 hover:[&>svg]:opacity-100">
+                          <StatusBadge status={project.status} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {statusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </td>
+                    <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
+                      <Select
+                        value={project.priority}
+                        onValueChange={v => {
+                          updateProject(project.id, { priority: v as ProjectPriority });
+                          toast.success('Prioritet uppdaterad!');
+                        }}
+                      >
+                        <SelectTrigger className="h-8 w-28 border-none bg-transparent p-0 shadow-none focus:ring-0 [&>svg]:opacity-0 hover:[&>svg]:opacity-100">
+                          <PriorityBadge priority={project.priority} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {priorityOptions.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </td>
+                    <td className="px-5 py-3.5 text-sm">
+                      {editing ? (
+                        <Input
+                          value={editData.assignee || ''}
+                          onChange={e => setEditData({ ...editData, assignee: e.target.value })}
+                          className="h-8 text-sm"
+                          onClick={e => e.stopPropagation()}
+                        />
+                      ) : project.assignee}
+                    </td>
                     <td className="px-5 py-3.5">
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-xs">
-                          <span>{(project.spent / 1000).toFixed(0)}k</span>
-                          <span className="text-muted-foreground">{(project.budget / 1000).toFixed(0)}k kr</span>
+                      {editing ? (
+                        <Input
+                          type="number"
+                          value={editData.budget || 0}
+                          onChange={e => setEditData({ ...editData, budget: Number(e.target.value) })}
+                          className="h-8 text-sm w-24"
+                          onClick={e => e.stopPropagation()}
+                        />
+                      ) : (
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span>{(project.spent / 1000).toFixed(0)}k</span>
+                            <span className="text-muted-foreground">{(project.budget / 1000).toFixed(0)}k kr</span>
+                          </div>
+                          <Progress value={pct} className="h-1.5" />
                         </div>
-                        <Progress value={pct} className="h-1.5" />
-                      </div>
+                      )}
                     </td>
-                    <td className="px-5 py-3.5 text-sm text-muted-foreground">{project.deadline}</td>
+                    <td className="px-5 py-3.5 text-sm text-muted-foreground">
+                      {editing ? (
+                        <Input
+                          type="date"
+                          value={editData.deadline || ''}
+                          onChange={e => setEditData({ ...editData, deadline: e.target.value })}
+                          className="h-8 text-sm"
+                          onClick={e => e.stopPropagation()}
+                        />
+                      ) : project.deadline}
+                    </td>
+                    <td className="px-5 py-3.5">
+                      {editing ? (
+                        <div className="flex gap-1">
+                          <Button size="icon" variant="ghost" className="h-7 w-7 text-status-done" onClick={saveEdit}>
+                            <Check className="h-4 w-4" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 text-status-stuck" onClick={cancelEdit}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button size="icon" variant="ghost" className="h-7 w-7 opacity-0 group-hover:opacity-100" onClick={(e) => startEdit(e, project)}>
+                          <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                        </Button>
+                      )}
+                    </td>
                   </motion.tr>
                 );
               })}
