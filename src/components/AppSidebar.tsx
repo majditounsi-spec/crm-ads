@@ -18,6 +18,7 @@ import {
 const navItems = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
   { title: 'Projekt', url: '/projects', icon: FolderKanban },
+  { title: 'Kontakter', url: '/contacts', icon: Users },
   { title: 'Tidloggning', url: '/time', icon: Clock },
   { title: 'Automationer', url: '/automations', icon: Zap },
 ];
