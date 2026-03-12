@@ -178,7 +178,7 @@ export default function Projects() {
                     initial={{ opacity: 0, y: 5 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.03 }}
-                    className="hover:bg-muted/30 transition-colors cursor-pointer"
+                    className="group hover:bg-muted/30 transition-colors cursor-pointer"
                     onClick={() => !editing && navigate(`/projects/${project.id}`)}
                   >
                     <td className="px-5 py-3.5">
