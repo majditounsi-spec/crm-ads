@@ -10,6 +10,7 @@ import ProjectDetail from "@/pages/ProjectDetail";
 import TimeTracking from "@/pages/TimeTracking";
 import Automations from "@/pages/Automations";
 import Contacts from "@/pages/Contacts";
+import GoogleAds from "@/pages/GoogleAds";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
