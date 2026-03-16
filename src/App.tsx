@@ -29,6 +29,7 @@ const App = () => (
             <Route path="/time" element={<TimeTracking />} />
             <Route path="/automations" element={<Automations />} />
             <Route path="/contacts" element={<Contacts />} />
+            <Route path="/google-ads" element={<GoogleAds />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
