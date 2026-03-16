@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { mockContacts } from '@/data/contactData';
 import { Contact, ContactStatus } from '@/types/crm';
 import { Input } from '@/components/ui/input';
@@ -14,12 +14,60 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import {
-  Search, Plus, ExternalLink, Star, Pencil, Globe, Upload, FileText, X,
+  Search, Plus, ExternalLink, Star, Pencil, Globe, Upload, FileText, X, ChevronDown,
 } from 'lucide-react';
+
+const SERVICE_OPTIONS = ['SEO', 'WEBB', 'Google ADS', 'META'] as const;
+
+function parseServices(service: string): string[] {
+  if (!service) return [];
+  return service.split(/\s*[\+\,]\s*/).map(s => s.trim()).filter(Boolean);
+}
+
+function formatServices(services: string[]): string {
+  return services.join(' + ');
+}
+
+function ServiceMultiSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const selected = parseServices(value);
+  const toggle = (svc: string) => {
+    const next = selected.includes(svc)
+      ? selected.filter(s => s !== svc)
+      : [...selected, svc];
+    onChange(formatServices(next));
+  };
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" className="w-full justify-between font-normal h-10 text-sm">
+          <span className="truncate">{value || 'Välj tjänster...'}</span>
+          <ChevronDown className="h-4 w-4 opacity-50 shrink-0 ml-2" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-2" align="start">
+        {SERVICE_OPTIONS.map(svc => (
+          <label
+            key={svc}
+            className="flex items-center gap-2 px-2 py-1.5 rounded-sm hover:bg-accent cursor-pointer text-sm"
+          >
+            <Checkbox
+              checked={selected.includes(svc)}
+              onCheckedChange={() => toggle(svc)}
+            />
+            {svc}
+          </label>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 const statusConfig: Record<ContactStatus, { label: string; className: string }> = {
   active: { label: 'Aktiv', className: 'bg-[hsl(var(--status-done))] text-white' },
@@ -199,7 +247,14 @@ export default function Contacts() {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{contact.service}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {parseServices(contact.service).map(svc => (
+                        <Badge key={svc} variant="secondary" className="text-xs">{svc}</Badge>
+                      ))}
+                      {!contact.service && <span className="text-muted-foreground">—</span>}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <Badge variant="outline" className="text-xs">{contact.platform || '—'}</Badge>
                   </TableCell>
@@ -258,9 +313,9 @@ export default function Contacts() {
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="text-sm font-medium text-foreground">Tjänst</label>
-                  <Input
+                  <ServiceMultiSelect
                     value={editingContact.service}
-                    onChange={(e) => setEditingContact({ ...editingContact, service: e.target.value })}
+                    onChange={(v) => setEditingContact({ ...editingContact, service: v })}
                   />
                 </div>
                 <div>
@@ -392,7 +447,7 @@ export default function Contacts() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium text-foreground">Tjänst</label>
-                <Input value={newContact.service} onChange={(e) => setNewContact({ ...newContact, service: e.target.value })} />
+                <ServiceMultiSelect value={newContact.service} onChange={(v) => setNewContact({ ...newContact, service: v })} />
               </div>
               <div>
                 <label className="text-sm font-medium text-foreground">Budget (kr)</label>
