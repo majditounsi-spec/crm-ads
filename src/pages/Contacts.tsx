@@ -247,7 +247,14 @@ export default function Contacts() {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{contact.service}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {parseServices(contact.service).map(svc => (
+                        <Badge key={svc} variant="secondary" className="text-xs">{svc}</Badge>
+                      ))}
+                      {!contact.service && <span className="text-muted-foreground">—</span>}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <Badge variant="outline" className="text-xs">{contact.platform || '—'}</Badge>
                   </TableCell>
