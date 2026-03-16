@@ -110,6 +110,12 @@ export default function Contacts() {
     setIsDetailOpen(true);
   };
 
+  const updateField = (id: string, field: keyof Contact, value: any) => {
+    setContacts((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, [field]: value } : c))
+    );
+  };
+
   const saveContact = () => {
     if (!editingContact) return;
     setContacts((prev) =>
