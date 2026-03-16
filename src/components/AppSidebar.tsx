@@ -1,4 +1,4 @@
-import { LayoutDashboard, FolderKanban, Clock, Zap, Settings, ChevronLeft, Users } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, Clock, Zap, Settings, ChevronLeft, Users, BarChart3 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import {
