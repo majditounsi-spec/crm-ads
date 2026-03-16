@@ -447,7 +447,7 @@ export default function Contacts() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium text-foreground">Tjänst</label>
-                <Input value={newContact.service} onChange={(e) => setNewContact({ ...newContact, service: e.target.value })} />
+                <ServiceMultiSelect value={newContact.service} onChange={(v) => setNewContact({ ...newContact, service: v })} />
               </div>
               <div>
                 <label className="text-sm font-medium text-foreground">Budget (kr)</label>
