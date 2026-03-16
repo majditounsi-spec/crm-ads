@@ -234,7 +234,8 @@ export default function Contacts() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.02 }}
-                  className="border-b transition-colors hover:bg-muted/50 group"
+                  className="border-b transition-colors hover:bg-muted/50 cursor-pointer group"
+                  onClick={() => openDetail(contact)}
                 >
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -244,6 +245,7 @@ export default function Contacts() {
                           href={contact.website}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
                           className="text-muted-foreground hover:text-primary"
                         >
                           <ExternalLink className="h-3.5 w-3.5" />
@@ -251,7 +253,7 @@ export default function Contacts() {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <ServiceMultiSelect
                       value={contact.service}
                       onChange={(v) => updateField(contact.id, 'service', v)}
@@ -260,7 +262,7 @@ export default function Contacts() {
                   <TableCell>
                     <Badge variant="outline" className="text-xs">{contact.platform || '—'}</Badge>
                   </TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <Input
                       type="number"
                       value={contact.budget}
@@ -271,7 +273,7 @@ export default function Contacts() {
                   <TableCell>
                     <div className="flex gap-0.5">{renderStars(contact.rating)}</div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <Input
                       value={contact.seller}
                       onChange={(e) => updateField(contact.id, 'seller', e.target.value)}
@@ -279,7 +281,7 @@ export default function Contacts() {
                       className="w-28 h-8 text-sm"
                     />
                   </TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <Select
                       value={contact.status}
                       onValueChange={(v) => updateField(contact.id, 'status', v)}
@@ -296,14 +298,7 @@ export default function Contacts() {
                     </Select>
                   </TableCell>
                   <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => openDetail(contact)}
-                    >
-                      <Pencil className="h-4 w-4 text-muted-foreground" />
-                    </Button>
+                    <Pencil className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                   </TableCell>
                 </motion.tr>
               ))}
