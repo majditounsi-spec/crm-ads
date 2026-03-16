@@ -313,9 +313,9 @@ export default function Contacts() {
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="text-sm font-medium text-foreground">Tjänst</label>
-                  <Input
+                  <ServiceMultiSelect
                     value={editingContact.service}
-                    onChange={(e) => setEditingContact({ ...editingContact, service: e.target.value })}
+                    onChange={(v) => setEditingContact({ ...editingContact, service: v })}
                   />
                 </div>
                 <div>
