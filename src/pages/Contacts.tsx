@@ -504,7 +504,7 @@ export default function Contacts() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddOpen(false)}>Avbryt</Button>
-            <Button onClick={addContact}>Lägg till</Button>
+            <Button onClick={handleAddContact}>Lägg till</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
