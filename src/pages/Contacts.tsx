@@ -77,7 +77,7 @@ const statusConfig: Record<ContactStatus, { label: string; className: string }> 
 };
 
 export default function Contacts() {
-  const [contacts, setContacts] = useState<Contact[]>(mockContacts);
+  const { contacts, loading, addContact: addContactDb, updateContact, updateField } = useContacts();
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
