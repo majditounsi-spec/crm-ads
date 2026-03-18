@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { mockContacts } from '@/data/contactData';
+import { useState } from 'react';
+import { useContacts } from '@/hooks/useContacts';
 import { Contact, ContactStatus } from '@/types/crm';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -77,7 +77,7 @@ const statusConfig: Record<ContactStatus, { label: string; className: string }> 
 };
 
 export default function Contacts() {
-  const [contacts, setContacts] = useState<Contact[]>(mockContacts);
+  const { contacts, loading, addContact: addContactDb, updateContact, updateField } = useContacts();
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -110,40 +110,34 @@ export default function Contacts() {
     setIsDetailOpen(true);
   };
 
-  const updateField = (id: string, field: keyof Contact, value: any) => {
-    setContacts((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, [field]: value } : c))
-    );
-  };
-
-  const saveContact = () => {
+  const saveContact = async () => {
     if (!editingContact) return;
-    setContacts((prev) =>
-      prev.map((c) => (c.id === editingContact.id ? editingContact : c))
-    );
-    setSelectedContact(editingContact);
-    toast.success(`${editingContact.name} har uppdaterats`);
+    const ok = await updateContact(editingContact);
+    if (ok) {
+      setSelectedContact(editingContact);
+      toast.success(`${editingContact.name} har uppdaterats`);
+    }
   };
 
-  const addContact = () => {
+  const handleAddContact = async () => {
     if (!newContact.name) {
       toast.error('Ange ett kundnamn');
       return;
     }
-    const contact: Contact = {
-      id: `c${Date.now()}`,
+    const contact = await addContactDb({
       ...newContact,
       rating: 1,
-      status: 'pending',
+      status: 'pending' as ContactStatus,
       hasReport: false,
-    };
-    setContacts((prev) => [...prev, contact]);
-    setIsAddOpen(false);
-    setNewContact({
-      name: '', website: '', platform: '', budget: 0, service: 'SEO',
-      contactPerson: '', seller: '', startDate: '', endDate: '', comment: '',
     });
-    toast.success(`${contact.name} har lagts till`);
+    if (contact) {
+      setIsAddOpen(false);
+      setNewContact({
+        name: '', website: '', platform: '', budget: 0, service: 'SEO',
+        contactPerson: '', seller: '', startDate: '', endDate: '', comment: '',
+      });
+      toast.success(`${contact.name} har lagts till`);
+    }
   };
 
   const renderStars = (rating: number) =>
@@ -510,7 +504,7 @@ export default function Contacts() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddOpen(false)}>Avbryt</Button>
-            <Button onClick={addContact}>Lägg till</Button>
+            <Button onClick={handleAddContact}>Lägg till</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
