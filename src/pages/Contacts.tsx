@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { mockContacts } from '@/data/contactData';
+import { useState } from 'react';
+import { useContacts } from '@/hooks/useContacts';
 import { Contact, ContactStatus } from '@/types/crm';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
