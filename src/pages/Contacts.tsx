@@ -110,40 +110,34 @@ export default function Contacts() {
     setIsDetailOpen(true);
   };
 
-  const updateField = (id: string, field: keyof Contact, value: any) => {
-    setContacts((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, [field]: value } : c))
-    );
-  };
-
-  const saveContact = () => {
+  const saveContact = async () => {
     if (!editingContact) return;
-    setContacts((prev) =>
-      prev.map((c) => (c.id === editingContact.id ? editingContact : c))
-    );
-    setSelectedContact(editingContact);
-    toast.success(`${editingContact.name} har uppdaterats`);
+    const ok = await updateContact(editingContact);
+    if (ok) {
+      setSelectedContact(editingContact);
+      toast.success(`${editingContact.name} har uppdaterats`);
+    }
   };
 
-  const addContact = () => {
+  const handleAddContact = async () => {
     if (!newContact.name) {
       toast.error('Ange ett kundnamn');
       return;
     }
-    const contact: Contact = {
-      id: `c${Date.now()}`,
+    const contact = await addContactDb({
       ...newContact,
       rating: 1,
-      status: 'pending',
+      status: 'pending' as ContactStatus,
       hasReport: false,
-    };
-    setContacts((prev) => [...prev, contact]);
-    setIsAddOpen(false);
-    setNewContact({
-      name: '', website: '', platform: '', budget: 0, service: 'SEO',
-      contactPerson: '', seller: '', startDate: '', endDate: '', comment: '',
     });
-    toast.success(`${contact.name} har lagts till`);
+    if (contact) {
+      setIsAddOpen(false);
+      setNewContact({
+        name: '', website: '', platform: '', budget: 0, service: 'SEO',
+        contactPerson: '', seller: '', startDate: '', endDate: '', comment: '',
+      });
+      toast.success(`${contact.name} har lagts till`);
+    }
   };
 
   const renderStars = (rating: number) =>
