@@ -92,6 +92,7 @@ export default function Contacts() {
   const [newContact, setNewContact] = useState({
     name: '', website: '', platform: '', budget: 0, service: 'SEO',
     contactPerson: '', seller: '', startDate: '', endDate: '', comment: '',
+    phone: '', emails: [''] as string[],
   });
 
   const filtered = contacts.filter((c) => {
