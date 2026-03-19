@@ -71,6 +71,12 @@ export default function Projects() {
     setEditData({});
   };
 
+  const deleteProject = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setProjects(prev => prev.filter(p => p.id !== id));
+    toast.success('Projekt borttaget!');
+  };
+
   const handleCreate = () => {
     if (!newProject.name || !newProject.client) {
       toast.error('Fyll i projektnamn och kund');
