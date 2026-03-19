@@ -117,10 +117,11 @@ export default function Contacts() {
 
   const saveContact = async () => {
     if (!editingContact) return;
-    const ok = await updateContact(editingContact);
+    const toSave = { ...editingContact, emails: editingContact.emails.filter(e => e.trim() !== '') };
+    const ok = await updateContact(toSave);
     if (ok) {
-      setSelectedContact(editingContact);
-      toast.success(`${editingContact.name} har uppdaterats`);
+      setSelectedContact(toSave);
+      toast.success(`${toSave.name} har uppdaterats`);
     }
   };
 
