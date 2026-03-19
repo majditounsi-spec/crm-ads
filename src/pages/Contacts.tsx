@@ -81,7 +81,7 @@ const statusConfig: Record<ContactStatus, { label: string; className: string }> 
 };
 
 export default function Contacts() {
-  const { contacts, loading, addContact: addContactDb, updateContact, updateField } = useContacts();
+  const { contacts, loading, addContact: addContactDb, updateContact, updateField, deleteContact } = useContacts();
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
