@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Filter, Pencil, Check, X } from 'lucide-react';
+import { Plus, Filter, Pencil, Check, X, Trash2 } from 'lucide-react';
 import { StatusBadge } from '@/components/StatusBadge';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { mockProjects } from '@/data/mockData';
