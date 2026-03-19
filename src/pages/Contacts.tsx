@@ -131,6 +131,7 @@ export default function Contacts() {
     }
     const contact = await addContactDb({
       ...newContact,
+      emails: newContact.emails.filter(e => e.trim() !== ''),
       rating: 1,
       status: 'pending' as ContactStatus,
       hasReport: false,
