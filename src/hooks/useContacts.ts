@@ -64,6 +64,8 @@ function contactToDb(c: Omit<Contact, 'id'>) {
     end_date: c.endDate,
     comment: c.comment,
     has_report: c.hasReport,
+    phone: c.phone,
+    emails: c.emails.join(', '),
   };
 }
 
