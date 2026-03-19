@@ -19,6 +19,8 @@ interface DbContact {
   comment: string;
   has_report: boolean;
   created_at: string;
+  phone: string;
+  emails: string;
 }
 
 function dbToContact(row: DbContact): Contact {
