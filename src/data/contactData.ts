@@ -1,5 +1,12 @@
 import { Contact } from '@/types/crm';
 
+// Helper to add default phone/emails to mock data
+const withDefaults = (c: Omit<Contact, 'phone' | 'emails'> & { phone?: string; emails?: string[] }): Contact => ({
+  ...c,
+  phone: c.phone ?? '',
+  emails: c.emails ?? [],
+});
+
 export const mockContacts: Contact[] = [
   { id: 'c1', name: 'AC-Verkstan', website: 'https://acverkstan.se/', platform: 'Wordpress', budget: 8, rating: 1, contactPerson: '', seller: '', service: 'SEO', status: 'active', startDate: '2026-01-15', endDate: '', comment: '', hasReport: false },
   { id: 'c2', name: 'Samuelssons Tak', website: 'https://samuelssonstak.se/', platform: 'Wordpress', budget: 30, rating: 1, contactPerson: '', seller: '', service: 'SEO', status: 'active', startDate: '2026-01-20', endDate: '', comment: '', hasReport: false },

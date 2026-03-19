@@ -141,6 +141,7 @@ export default function Contacts() {
       setNewContact({
         name: '', website: '', platform: '', budget: 0, service: 'SEO',
         contactPerson: '', seller: '', startDate: '', endDate: '', comment: '',
+        phone: '', emails: [''],
       });
       toast.success(`${contact.name} har lagts till`);
     }
