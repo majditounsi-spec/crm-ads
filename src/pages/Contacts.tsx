@@ -384,6 +384,61 @@ export default function Contacts() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                    <Phone className="h-3.5 w-3.5" /> Telefonnummer
+                  </label>
+                  <Input
+                    value={editingContact.phone}
+                    onChange={(e) => setEditingContact({ ...editingContact, phone: e.target.value })}
+                    placeholder="070-123 45 67"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                    <Mail className="h-3.5 w-3.5" /> E-postadresser
+                  </label>
+                  {editingContact.emails.map((email, idx) => (
+                    <div key={idx} className="flex gap-1.5 mt-1">
+                      <Input
+                        type="email"
+                        value={email}
+                        onChange={(e) => {
+                          const updated = [...editingContact.emails];
+                          updated[idx] = e.target.value;
+                          setEditingContact({ ...editingContact, emails: updated });
+                        }}
+                        placeholder="namn@exempel.se"
+                      />
+                      {editingContact.emails.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="shrink-0 h-10 w-10"
+                          onClick={() => {
+                            const updated = editingContact.emails.filter((_, i) => i !== idx);
+                            setEditingContact({ ...editingContact, emails: updated });
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-1.5"
+                    onClick={() => setEditingContact({ ...editingContact, emails: [...editingContact.emails, ''] })}
+                  >
+                    <Plus className="h-3.5 w-3.5 mr-1" /> Lägg till e-post
+                  </Button>
+                </div>
+              </div>
+
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="text-sm font-medium text-foreground">Status</label>
