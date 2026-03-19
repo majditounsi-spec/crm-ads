@@ -23,6 +23,11 @@ interface DbContact {
   emails: string;
 }
 
+function parseEmails(raw: string): string[] {
+  if (!raw) return [];
+  return raw.split(',').map(e => e.trim()).filter(Boolean);
+}
+
 function dbToContact(row: DbContact): Contact {
   return {
     id: row.id,
@@ -39,6 +44,8 @@ function dbToContact(row: DbContact): Contact {
     endDate: row.end_date,
     comment: row.comment,
     hasReport: row.has_report,
+    phone: row.phone,
+    emails: parseEmails(row.emails),
   };
 }
 
