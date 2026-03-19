@@ -138,5 +138,21 @@ export function useContacts() {
     }
   };
 
-  return { contacts, loading, addContact, updateContact, updateField, refetch: fetchContacts };
+  const deleteContact = async (id: string) => {
+    const { error } = await supabase
+      .from('contacts' as any)
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      toast.error('Kunde inte ta bort kund');
+      console.error(error);
+      return false;
+    }
+    setContacts((prev) => prev.filter((c) => c.id !== id));
+    toast.success('Kund borttagen');
+    return true;
+  };
+
+  return { contacts, loading, addContact, updateContact, updateField, deleteContact, refetch: fetchContacts };
 }

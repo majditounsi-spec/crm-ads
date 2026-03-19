@@ -12,6 +12,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -20,7 +24,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import {
-  Search, Plus, ExternalLink, Star, Pencil, Globe, Upload, FileText, X, ChevronDown,
+  Search, Plus, ExternalLink, Star, Pencil, Globe, Upload, FileText, X, ChevronDown, Trash2,
 } from 'lucide-react';
 
 const SERVICE_OPTIONS = ['SEO', 'WEBB', 'Google ADS', 'META'] as const;
@@ -77,7 +81,7 @@ const statusConfig: Record<ContactStatus, { label: string; className: string }> 
 };
 
 export default function Contacts() {
-  const { contacts, loading, addContact: addContactDb, updateContact, updateField } = useContacts();
+  const { contacts, loading, addContact: addContactDb, updateContact, updateField, deleteContact } = useContacts();
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -439,9 +443,38 @@ export default function Contacts() {
             </div>
           )}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDetailOpen(false)}>Stäng</Button>
-            <Button onClick={saveContact}>Spara ändringar</Button>
+          <DialogFooter className="flex justify-between sm:justify-between">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm"><Trash2 className="h-4 w-4 mr-1" />Ta bort</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Ta bort kund?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Är du säker på att du vill ta bort {editingContact?.name}? Detta kan inte ångras.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={async () => {
+                      if (editingContact) {
+                        await deleteContact(editingContact.id);
+                        setIsDetailOpen(false);
+                      }
+                    }}
+                  >
+                    Ta bort
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setIsDetailOpen(false)}>Stäng</Button>
+              <Button onClick={saveContact}>Spara ändringar</Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
