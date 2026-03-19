@@ -332,6 +332,8 @@ export default function Projects() {
                             </AlertDialogContent>
                           </AlertDialog>
                         </div>
+                      )}
+                    </td>
                   </motion.tr>
                 );
               })}
