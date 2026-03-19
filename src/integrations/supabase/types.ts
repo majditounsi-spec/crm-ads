@@ -20,10 +20,12 @@ export type Database = {
           comment: string
           contact_person: string
           created_at: string
+          emails: string
           end_date: string
           has_report: boolean
           id: string
           name: string
+          phone: string
           platform: string
           rating: number
           seller: string
@@ -37,10 +39,12 @@ export type Database = {
           comment?: string
           contact_person?: string
           created_at?: string
+          emails?: string
           end_date?: string
           has_report?: boolean
           id?: string
           name: string
+          phone?: string
           platform?: string
           rating?: number
           seller?: string
@@ -54,10 +58,12 @@ export type Database = {
           comment?: string
           contact_person?: string
           created_at?: string
+          emails?: string
           end_date?: string
           has_report?: boolean
           id?: string
           name?: string
+          phone?: string
           platform?: string
           rating?: number
           seller?: string
