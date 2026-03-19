@@ -135,7 +135,12 @@ export function useContacts() {
       startDate: 'start_date',
       endDate: 'end_date',
       hasReport: 'has_report',
+      emails: 'emails',
     };
+    // Convert emails array to comma-separated string for DB
+    if (field === 'emails' && Array.isArray(value)) {
+      value = (value as string[]).join(', ');
+    }
     const dbField = dbFieldMap[field] || field;
 
     const { error } = await supabase
