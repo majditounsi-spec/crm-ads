@@ -24,7 +24,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import {
-  Search, Plus, ExternalLink, Star, Pencil, Globe, Upload, FileText, X, ChevronDown,
+  Search, Plus, ExternalLink, Star, Pencil, Globe, Upload, FileText, X, ChevronDown, Trash2,
 } from 'lucide-react';
 
 const SERVICE_OPTIONS = ['SEO', 'WEBB', 'Google ADS', 'META'] as const;
