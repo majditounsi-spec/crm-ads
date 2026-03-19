@@ -443,9 +443,38 @@ export default function Contacts() {
             </div>
           )}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDetailOpen(false)}>Stäng</Button>
-            <Button onClick={saveContact}>Spara ändringar</Button>
+          <DialogFooter className="flex justify-between sm:justify-between">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm"><Trash2 className="h-4 w-4 mr-1" />Ta bort</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Ta bort kund?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Är du säker på att du vill ta bort {editingContact?.name}? Detta kan inte ångras.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={async () => {
+                      if (editingContact) {
+                        await deleteContact(editingContact.id);
+                        setIsDetailOpen(false);
+                      }
+                    }}
+                  >
+                    Ta bort
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setIsDetailOpen(false)}>Stäng</Button>
+              <Button onClick={saveContact}>Spara ändringar</Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
