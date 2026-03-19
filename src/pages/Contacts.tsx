@@ -111,7 +111,7 @@ export default function Contacts() {
 
   const openDetail = (contact: Contact) => {
     setSelectedContact(contact);
-    setEditingContact({ ...contact });
+    setEditingContact({ ...contact, emails: contact.emails.length > 0 ? contact.emails : [''] });
     setIsDetailOpen(true);
   };
 
