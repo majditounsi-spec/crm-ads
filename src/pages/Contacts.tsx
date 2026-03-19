@@ -24,7 +24,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import {
-  Search, Plus, ExternalLink, Star, Pencil, Globe, Upload, FileText, X, ChevronDown, Trash2,
+  Search, Plus, ExternalLink, Star, Pencil, Globe, Upload, FileText, X, ChevronDown, Trash2, Phone, Mail,
 } from 'lucide-react';
 
 const SERVICE_OPTIONS = ['SEO', 'WEBB', 'Google ADS', 'META'] as const;
@@ -92,6 +92,7 @@ export default function Contacts() {
   const [newContact, setNewContact] = useState({
     name: '', website: '', platform: '', budget: 0, service: 'SEO',
     contactPerson: '', seller: '', startDate: '', endDate: '', comment: '',
+    phone: '', emails: [''] as string[],
   });
 
   const filtered = contacts.filter((c) => {
@@ -110,16 +111,17 @@ export default function Contacts() {
 
   const openDetail = (contact: Contact) => {
     setSelectedContact(contact);
-    setEditingContact({ ...contact });
+    setEditingContact({ ...contact, emails: contact.emails.length > 0 ? contact.emails : [''] });
     setIsDetailOpen(true);
   };
 
   const saveContact = async () => {
     if (!editingContact) return;
-    const ok = await updateContact(editingContact);
+    const toSave = { ...editingContact, emails: editingContact.emails.filter(e => e.trim() !== '') };
+    const ok = await updateContact(toSave);
     if (ok) {
-      setSelectedContact(editingContact);
-      toast.success(`${editingContact.name} har uppdaterats`);
+      setSelectedContact(toSave);
+      toast.success(`${toSave.name} har uppdaterats`);
     }
   };
 
@@ -130,6 +132,7 @@ export default function Contacts() {
     }
     const contact = await addContactDb({
       ...newContact,
+      emails: newContact.emails.filter(e => e.trim() !== ''),
       rating: 1,
       status: 'pending' as ContactStatus,
       hasReport: false,
@@ -139,6 +142,7 @@ export default function Contacts() {
       setNewContact({
         name: '', website: '', platform: '', budget: 0, service: 'SEO',
         contactPerson: '', seller: '', startDate: '', endDate: '', comment: '',
+        phone: '', emails: [''],
       });
       toast.success(`${contact.name} har lagts till`);
     }
@@ -381,6 +385,61 @@ export default function Contacts() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                    <Phone className="h-3.5 w-3.5" /> Telefonnummer
+                  </label>
+                  <Input
+                    value={editingContact.phone}
+                    onChange={(e) => setEditingContact({ ...editingContact, phone: e.target.value })}
+                    placeholder="070-123 45 67"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                    <Mail className="h-3.5 w-3.5" /> E-postadresser
+                  </label>
+                  {editingContact.emails.map((email, idx) => (
+                    <div key={idx} className="flex gap-1.5 mt-1">
+                      <Input
+                        type="email"
+                        value={email}
+                        onChange={(e) => {
+                          const updated = [...editingContact.emails];
+                          updated[idx] = e.target.value;
+                          setEditingContact({ ...editingContact, emails: updated });
+                        }}
+                        placeholder="namn@exempel.se"
+                      />
+                      {editingContact.emails.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="shrink-0 h-10 w-10"
+                          onClick={() => {
+                            const updated = editingContact.emails.filter((_, i) => i !== idx);
+                            setEditingContact({ ...editingContact, emails: updated });
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-1.5"
+                    onClick={() => setEditingContact({ ...editingContact, emails: [...editingContact.emails, ''] })}
+                  >
+                    <Plus className="h-3.5 w-3.5 mr-1" /> Lägg till e-post
+                  </Button>
+                </div>
+              </div>
+
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="text-sm font-medium text-foreground">Status</label>
@@ -518,6 +577,43 @@ export default function Contacts() {
               <div>
                 <label className="text-sm font-medium text-foreground">Säljare</label>
                 <Input value={newContact.seller} onChange={(e) => setNewContact({ ...newContact, seller: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                  <Phone className="h-3.5 w-3.5" /> Telefonnummer
+                </label>
+                <Input value={newContact.phone} onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })} placeholder="070-123 45 67" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                  <Mail className="h-3.5 w-3.5" /> E-postadresser
+                </label>
+                {newContact.emails.map((email, idx) => (
+                  <div key={idx} className="flex gap-1.5 mt-1">
+                    <Input
+                      type="email"
+                      value={email}
+                      onChange={(e) => {
+                        const updated = [...newContact.emails];
+                        updated[idx] = e.target.value;
+                        setNewContact({ ...newContact, emails: updated });
+                      }}
+                      placeholder="namn@exempel.se"
+                    />
+                    {newContact.emails.length > 1 && (
+                      <Button type="button" variant="ghost" size="icon" className="shrink-0 h-10 w-10"
+                        onClick={() => setNewContact({ ...newContact, emails: newContact.emails.filter((_, i) => i !== idx) })}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                <Button type="button" variant="outline" size="sm" className="mt-1.5"
+                  onClick={() => setNewContact({ ...newContact, emails: [...newContact.emails, ''] })}>
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Lägg till e-post
+                </Button>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">

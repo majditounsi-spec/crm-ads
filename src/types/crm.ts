@@ -60,4 +60,6 @@ export interface Contact {
   endDate: string;
   comment: string;
   hasReport: boolean;
+  phone: string;
+  emails: string[];
 }

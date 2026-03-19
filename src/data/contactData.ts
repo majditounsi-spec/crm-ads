@@ -1,6 +1,8 @@
 import { Contact } from '@/types/crm';
 
-export const mockContacts: Contact[] = [
+type MockContact = Omit<Contact, 'phone' | 'emails'>;
+
+const rawContacts: MockContact[] = [
   { id: 'c1', name: 'AC-Verkstan', website: 'https://acverkstan.se/', platform: 'Wordpress', budget: 8, rating: 1, contactPerson: '', seller: '', service: 'SEO', status: 'active', startDate: '2026-01-15', endDate: '', comment: '', hasReport: false },
   { id: 'c2', name: 'Samuelssons Tak', website: 'https://samuelssonstak.se/', platform: 'Wordpress', budget: 30, rating: 1, contactPerson: '', seller: '', service: 'SEO', status: 'active', startDate: '2026-01-20', endDate: '', comment: '', hasReport: false },
   { id: 'c3', name: 'Maskinaffären', website: 'https://www.maskinaffaren.se/', platform: 'Wordpress', budget: 30, rating: 1, contactPerson: '', seller: 'Jonas', service: 'SEO', status: 'active', startDate: '2026-02-01', endDate: '', comment: '', hasReport: false },
@@ -63,3 +65,5 @@ export const mockContacts: Contact[] = [
   { id: 'c60', name: 'Kristianopel Gästgifveri', website: 'https://kristianopelgastgifveri.se/', platform: 'Wordpress', budget: 24, rating: 1, contactPerson: '', seller: '', service: 'SEO', status: 'active', startDate: '2026-03-01', endDate: '', comment: 'Jonas kund', hasReport: false },
   { id: 'c61', name: 'KV-Bygg', website: 'https://k-vbygg.se/', platform: 'Wordpress', budget: 0, rating: 1, contactPerson: '', seller: '', service: 'SEO', status: 'pending', startDate: '', endDate: '', comment: '', hasReport: false },
 ];
+
+export const mockContacts: Contact[] = rawContacts.map(c => ({ ...c, phone: '', emails: [] }));

@@ -19,6 +19,13 @@ interface DbContact {
   comment: string;
   has_report: boolean;
   created_at: string;
+  phone: string;
+  emails: string;
+}
+
+function parseEmails(raw: string): string[] {
+  if (!raw) return [];
+  return raw.split(',').map(e => e.trim()).filter(Boolean);
 }
 
 function dbToContact(row: DbContact): Contact {
@@ -37,6 +44,8 @@ function dbToContact(row: DbContact): Contact {
     endDate: row.end_date,
     comment: row.comment,
     hasReport: row.has_report,
+    phone: row.phone,
+    emails: parseEmails(row.emails),
   };
 }
 
@@ -55,6 +64,8 @@ function contactToDb(c: Omit<Contact, 'id'>) {
     end_date: c.endDate,
     comment: c.comment,
     has_report: c.hasReport,
+    phone: c.phone,
+    emails: c.emails.join(', '),
   };
 }
 
@@ -124,7 +135,12 @@ export function useContacts() {
       startDate: 'start_date',
       endDate: 'end_date',
       hasReport: 'has_report',
+      emails: 'emails',
     };
+    // Convert emails array to comma-separated string for DB
+    if (field === 'emails' && Array.isArray(value)) {
+      value = (value as string[]).join(', ');
+    }
     const dbField = dbFieldMap[field] || field;
 
     const { error } = await supabase
