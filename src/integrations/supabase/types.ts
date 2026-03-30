@@ -124,6 +124,45 @@ export type Database = {
           }
         ]
       }
+      google_ads_config: {
+        Row: {
+          id: string
+          developer_token: string
+          client_id: string
+          client_secret: string
+          refresh_token: string
+          access_token: string
+          access_token_expires_at: string | null
+          last_synced_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          developer_token?: string
+          client_id?: string
+          client_secret?: string
+          refresh_token?: string
+          access_token?: string
+          access_token_expires_at?: string | null
+          last_synced_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          developer_token?: string
+          client_id?: string
+          client_secret?: string
+          refresh_token?: string
+          access_token?: string
+          access_token_expires_at?: string | null
+          last_synced_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

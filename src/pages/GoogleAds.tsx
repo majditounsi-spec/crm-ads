@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useContacts } from '@/hooks/useContacts';
 import { useGoogleAdsBudgets } from '@/hooks/useGoogleAdsBudgets';
+import { useGoogleAdsConfig } from '@/hooks/useGoogleAdsConfig';
+import GoogleAdsSettings from '@/components/GoogleAdsSettings';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -11,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
-import { ExternalLink, Search, TrendingUp, Plus, CalendarDays, DollarSign, BarChart3, Loader2 } from 'lucide-react';
+import { ExternalLink, Search, TrendingUp, Plus, CalendarDays, RefreshCw, Settings, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { Contact } from '@/types/crm';
@@ -53,8 +55,10 @@ export default function GoogleAds() {
   const [addImpressions, setAddImpressions] = useState('');
   const [addClicks, setAddClicks] = useState('');
   const [addConversions, setAddConversions] = useState('');
+  const [showSettings, setShowSettings] = useState(false);
 
   const { contacts, loading: contactsLoading } = useContacts();
+  const { config, syncing, syncBudgets } = useGoogleAdsConfig();
 
   // Filter contacts that have Google ADS or ADS in their service
   const adsContacts = useMemo(() =>
@@ -195,13 +199,31 @@ export default function GoogleAds() {
           <h1 className="text-3xl font-heading font-bold text-foreground">Google ADS Översikt</h1>
           <p className="text-muted-foreground mt-1">Dagliga budgetar och spendöversikt för alla ADS-kunder</p>
         </div>
-        <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Lägg till budgetdata
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => setShowSettings(!showSettings)}
+          >
+            <Settings className="h-4 w-4" />
+            Inställningar
+          </Button>
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => syncBudgets(yearFrom, yearTo)}
+            disabled={syncing || !config?.developerToken}
+          >
+            <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Synkar...' : 'Synka från Google Ads'}
+          </Button>
+          <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                Lägg till manuellt
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Lägg till daglig budgetdata</DialogTitle>
@@ -256,7 +278,11 @@ export default function GoogleAds() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
+
+      {/* Settings panel */}
+      {showSettings && <GoogleAdsSettings />}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
