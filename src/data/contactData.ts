@@ -1,6 +1,6 @@
 import { Contact } from '@/types/crm';
 
-type MockContact = Omit<Contact, 'phone' | 'emails'>;
+type MockContact = Omit<Contact, 'phone' | 'emails' | 'googleAdsCustomerId'>;
 
 const rawContacts: MockContact[] = [
   { id: 'c1', name: 'AC-Verkstan', website: 'https://acverkstan.se/', platform: 'Wordpress', budget: 8, rating: 1, contactPerson: '', seller: '', service: 'SEO', status: 'active', startDate: '2026-01-15', endDate: '', comment: '', hasReport: false },
@@ -66,4 +66,4 @@ const rawContacts: MockContact[] = [
   { id: 'c61', name: 'KV-Bygg', website: 'https://k-vbygg.se/', platform: 'Wordpress', budget: 0, rating: 1, contactPerson: '', seller: '', service: 'SEO', status: 'pending', startDate: '', endDate: '', comment: '', hasReport: false },
 ];
 
-export const mockContacts: Contact[] = rawContacts.map(c => ({ ...c, phone: '', emails: [] }));
+export const mockContacts: Contact[] = rawContacts.map(c => ({ ...c, phone: '', emails: [], googleAdsCustomerId: '' }));

@@ -62,4 +62,17 @@ export interface Contact {
   hasReport: boolean;
   phone: string;
   emails: string[];
+  googleAdsCustomerId: string;
+}
+
+export interface GoogleAdsDailyBudget {
+  id: string;
+  contactId: string;
+  date: string;
+  campaignName: string;
+  dailyBudget: number;
+  dailySpend: number;
+  impressions: number;
+  clicks: number;
+  conversions: number;
 }

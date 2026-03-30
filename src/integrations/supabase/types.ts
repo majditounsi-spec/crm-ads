@@ -22,6 +22,7 @@ export type Database = {
           created_at: string
           emails: string
           end_date: string
+          google_ads_customer_id: string
           has_report: boolean
           id: string
           name: string
@@ -41,6 +42,7 @@ export type Database = {
           created_at?: string
           emails?: string
           end_date?: string
+          google_ads_customer_id?: string
           has_report?: boolean
           id?: string
           name: string
@@ -60,6 +62,7 @@ export type Database = {
           created_at?: string
           emails?: string
           end_date?: string
+          google_ads_customer_id?: string
           has_report?: boolean
           id?: string
           name?: string
@@ -73,6 +76,53 @@ export type Database = {
           website?: string
         }
         Relationships: []
+      }
+      google_ads_daily_budgets: {
+        Row: {
+          id: string
+          contact_id: string
+          date: string
+          campaign_name: string
+          daily_budget: number
+          daily_spend: number
+          impressions: number
+          clicks: number
+          conversions: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          contact_id: string
+          date: string
+          campaign_name?: string
+          daily_budget?: number
+          daily_spend?: number
+          impressions?: number
+          clicks?: number
+          conversions?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          contact_id?: string
+          date?: string
+          campaign_name?: string
+          daily_budget?: number
+          daily_spend?: number
+          impressions?: number
+          clicks?: number
+          conversions?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "google_ads_daily_budgets_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          }
+        ]
       }
     }
     Views: {

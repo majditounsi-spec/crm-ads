@@ -21,6 +21,7 @@ interface DbContact {
   created_at: string;
   phone: string;
   emails: string;
+  google_ads_customer_id: string;
 }
 
 function parseEmails(raw: string): string[] {
@@ -46,6 +47,7 @@ function dbToContact(row: DbContact): Contact {
     hasReport: row.has_report,
     phone: row.phone,
     emails: parseEmails(row.emails),
+    googleAdsCustomerId: row.google_ads_customer_id,
   };
 }
 
@@ -66,6 +68,7 @@ function contactToDb(c: Omit<Contact, 'id'>) {
     has_report: c.hasReport,
     phone: c.phone,
     emails: c.emails.join(', '),
+    google_ads_customer_id: c.googleAdsCustomerId,
   };
 }
 
@@ -136,6 +139,7 @@ export function useContacts() {
       endDate: 'end_date',
       hasReport: 'has_report',
       emails: 'emails',
+      googleAdsCustomerId: 'google_ads_customer_id',
     };
     // Convert emails array to comma-separated string for DB
     if (field === 'emails' && Array.isArray(value)) {

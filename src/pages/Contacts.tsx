@@ -92,7 +92,7 @@ export default function Contacts() {
   const [newContact, setNewContact] = useState({
     name: '', website: '', platform: '', budget: 0, service: 'SEO',
     contactPerson: '', seller: '', startDate: '', endDate: '', comment: '',
-    phone: '', emails: [''] as string[],
+    phone: '', emails: [''] as string[], googleAdsCustomerId: '',
   });
 
   const filtered = contacts.filter((c) => {
@@ -142,7 +142,7 @@ export default function Contacts() {
       setNewContact({
         name: '', website: '', platform: '', budget: 0, service: 'SEO',
         contactPerson: '', seller: '', startDate: '', endDate: '', comment: '',
-        phone: '', emails: [''],
+        phone: '', emails: [''], googleAdsCustomerId: '',
       });
       toast.success(`${contact.name} har lagts till`);
     }
