@@ -1,4 +1,4 @@
-import { LayoutDashboard, FolderKanban, Clock, Zap, Settings, Users, BarChart3, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, Clock, Zap, Settings, Users, BarChart3, TrendingUp, Link2, Activity } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import {
@@ -22,6 +22,8 @@ const navItems = [
   { title: 'Google ADS', url: '/google-ads', icon: BarChart3 },
   { title: 'Tidloggning', url: '/time', icon: Clock },
   { title: 'Automationer', url: '/automations', icon: Zap },
+  { title: 'Integrationer', url: '/integrations', icon: Link2 },
+  { title: 'Aktivitetslogg', url: '/activity', icon: Activity },
 ];
 
 export function AppSidebar() {
@@ -38,7 +40,7 @@ export function AppSidebar() {
           {!collapsed && (
             <div>
               <span className="font-heading font-bold text-lg text-sidebar-accent-foreground tracking-tight">MarketFlow</span>
-              <p className="text-[10px] text-sidebar-muted -mt-0.5">CRM & Projekthantering</p>
+              <p className="text-[10px] text-sidebar-muted -mt-0.5">CRM för Mediabyrå</p>
             </div>
           )}
         </div>

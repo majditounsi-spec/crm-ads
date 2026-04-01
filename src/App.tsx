@@ -12,6 +12,8 @@ import Automations from "@/pages/Automations";
 import Contacts from "@/pages/Contacts";
 import GoogleAds from "@/pages/GoogleAds";
 import SalesBoard from "@/pages/SalesBoard";
+import Integrations from "@/pages/Integrations";
+import ActivityLog from "@/pages/ActivityLog";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -32,6 +34,8 @@ const App = () => (
             <Route path="/contacts" element={<Contacts />} />
             <Route path="/google-ads" element={<GoogleAds />} />
             <Route path="/sales" element={<SalesBoard />} />
+            <Route path="/integrations" element={<Integrations />} />
+            <Route path="/activity" element={<ActivityLog />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

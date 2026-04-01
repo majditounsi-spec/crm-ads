@@ -24,7 +24,7 @@ import {
   Search, Plus, ExternalLink, Star, Globe, Upload, FileText, X, ChevronDown, Trash2, Phone, Mail, Eye, EyeOff,
 } from 'lucide-react';
 
-const SERVICE_OPTIONS = ['SEO', 'WEBB', 'Google ADS', 'META'] as const;
+const SERVICE_OPTIONS = ['SEO', 'WEBB', 'Google ADS', 'META', 'Film/Foto'] as const;
 
 const ALL_COLUMNS = [
   { key: 'name', label: 'Kund', defaultVisible: true, minWidth: '180px' },
