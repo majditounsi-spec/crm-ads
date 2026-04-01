@@ -35,6 +35,104 @@ function dbToConfig(row: DbConfig): GoogleAdsConfig {
   };
 }
 
+const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
+const GOOGLE_ADS_API_VERSION = 'v18';
+
+async function refreshAccessToken(config: GoogleAdsConfig): Promise<string> {
+  const res = await fetch(GOOGLE_TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: config.clientId,
+      client_secret: config.clientSecret,
+      refresh_token: config.refreshToken,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Kunde inte förnya token: ${err}`);
+  }
+
+  const data = await res.json();
+  return data.access_token;
+}
+
+async function fetchGoogleAdsBudgets(
+  accessToken: string,
+  developerToken: string,
+  customerId: string,
+  dateFrom: string,
+  dateTo: string
+) {
+  const cleanCustomerId = customerId.replace(/-/g, '');
+
+  const query = `
+    SELECT
+      campaign.id,
+      campaign.name,
+      campaign_budget.amount_micros,
+      metrics.cost_micros,
+      metrics.impressions,
+      metrics.clicks,
+      metrics.conversions,
+      segments.date
+    FROM campaign
+    WHERE segments.date BETWEEN '${dateFrom}' AND '${dateTo}'
+      AND campaign.status != 'REMOVED'
+    ORDER BY segments.date DESC
+  `;
+
+  const res = await fetch(
+    `https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}/customers/${cleanCustomerId}/googleAds:searchStream`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'developer-token': developerToken,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query }),
+    }
+  );
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Google Ads API fel för ${customerId}: ${err}`);
+  }
+
+  const data = await res.json();
+  const results: Array<{
+    date: string;
+    campaign_name: string;
+    daily_budget: number;
+    daily_spend: number;
+    impressions: number;
+    clicks: number;
+    conversions: number;
+  }> = [];
+
+  if (!data || !Array.isArray(data)) return results;
+
+  for (const batch of data) {
+    if (!batch.results) continue;
+    for (const row of batch.results) {
+      results.push({
+        date: row.segments?.date || '',
+        campaign_name: row.campaign?.name || 'Unknown',
+        daily_budget: (row.campaignBudget?.amountMicros || 0) / 1_000_000,
+        daily_spend: (row.metrics?.costMicros || 0) / 1_000_000,
+        impressions: row.metrics?.impressions || 0,
+        clicks: row.metrics?.clicks || 0,
+        conversions: row.metrics?.conversions || 0,
+      });
+    }
+  }
+
+  return results;
+}
+
 export function useGoogleAdsConfig() {
   const [config, setConfig] = useState<GoogleAdsConfig | null>(null);
   const [loading, setLoading] = useState(true);
@@ -98,39 +196,110 @@ export function useGoogleAdsConfig() {
   };
 
   const syncBudgets = async (dateFrom?: string, dateTo?: string) => {
+    if (!config) {
+      toast.error('Konfigurera Google Ads API först');
+      return null;
+    }
+
     setSyncing(true);
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://cybxfemtgzonmhuiabeb.supabase.co";
-      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5YnhmZW10Z3pvbm1odWlhYmViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NzI5NjEsImV4cCI6MjA4OTM0ODk2MX0.93PI5FLPkhfMvwq1ADIwuzfsn92S6tngoQDaB4DOysA";
+      // Step 1: Refresh access token
+      toast.info('Förnyar access token...');
+      const accessToken = await refreshAccessToken(config);
 
-      const res = await fetch(`${supabaseUrl}/functions/v1/sync-google-ads`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseKey}`,
-          'apikey': supabaseKey,
-        },
-        body: JSON.stringify({ dateFrom, dateTo }),
-      });
+      // Save access token to DB
+      await supabase
+        .from('google_ads_config' as any)
+        .update({
+          access_token: accessToken,
+          access_token_expires_at: new Date(Date.now() + 3500 * 1000).toISOString(),
+        } as any)
+        .eq('id', config.id);
 
-      const data = await res.json();
+      // Step 2: Get contacts with Google Ads customer IDs
+      const { data: contacts, error: contactsError } = await supabase
+        .from('contacts')
+        .select('id, name, google_ads_customer_id')
+        .neq('google_ads_customer_id', '');
 
-      if (!res.ok) {
-        toast.error(data.error || 'Synkronisering misslyckades');
+      if (contactsError) {
+        throw new Error(`Kunde inte hämta kontakter: ${contactsError.message}`);
+      }
+
+      const adsContacts = (contacts || []).filter((c: any) => c.google_ads_customer_id);
+
+      if (adsContacts.length === 0) {
+        toast.warning('Inga kontakter har Google Ads kund-ID. Lägg till kund-ID i kontakternas inställningar.');
         return null;
       }
 
-      if (data.errors?.length > 0) {
-        toast.warning(`Synkat ${data.synced} poster, men ${data.errors.length} fel uppstod`);
-      } else {
-        toast.success(`${data.synced} poster synkade från ${data.contacts} konton`);
+      const from = dateFrom || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const to = dateTo || new Date().toISOString().split('T')[0];
+
+      // Step 3: Fetch budgets for each contact
+      toast.info(`Hämtar data för ${adsContacts.length} konton...`);
+      let totalSynced = 0;
+      const errors: string[] = [];
+
+      for (const contact of adsContacts) {
+        try {
+          const budgets = await fetchGoogleAdsBudgets(
+            accessToken,
+            config.developerToken,
+            (contact as any).google_ads_customer_id,
+            from,
+            to
+          );
+
+          for (const budget of budgets) {
+            const { error: upsertError } = await supabase
+              .from('google_ads_daily_budgets' as any)
+              .upsert(
+                {
+                  contact_id: (contact as any).id,
+                  date: budget.date,
+                  campaign_name: budget.campaign_name,
+                  daily_budget: budget.daily_budget,
+                  daily_spend: budget.daily_spend,
+                  impressions: budget.impressions,
+                  clicks: budget.clicks,
+                  conversions: budget.conversions,
+                } as any,
+                { onConflict: 'contact_id,date,campaign_name' }
+              );
+
+            if (upsertError) {
+              errors.push(`${(contact as any).name}: ${upsertError.message}`);
+            } else {
+              totalSynced++;
+            }
+          }
+        } catch (err: any) {
+          errors.push(`${(contact as any).name}: ${err.message}`);
+        }
       }
 
+      // Update last synced timestamp
+      await supabase
+        .from('google_ads_config' as any)
+        .update({ last_synced_at: new Date().toISOString() } as any)
+        .eq('id', config.id);
+
       await fetchConfig();
-      return data;
-    } catch (err) {
-      toast.error('Kunde inte ansluta till synkroniseringstjänsten');
-      console.error(err);
+
+      if (errors.length > 0) {
+        toast.warning(`Synkat ${totalSynced} poster, men ${errors.length} fel uppstod`);
+        console.error('Sync errors:', errors);
+      } else if (totalSynced === 0) {
+        toast.info('Inga nya poster att synka. Kontrollera att kund-ID:n är korrekta.');
+      } else {
+        toast.success(`${totalSynced} poster synkade från ${adsContacts.length} konton!`);
+      }
+
+      return { synced: totalSynced, contacts: adsContacts.length, errors };
+    } catch (err: any) {
+      toast.error(err.message || 'Synkronisering misslyckades');
+      console.error('Sync failed:', err);
       return null;
     } finally {
       setSyncing(false);
