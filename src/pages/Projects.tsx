@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Filter, Pencil, Check, X, Trash2 } from 'lucide-react';
+import { Plus, Filter, Pencil, Check, X, Trash2, LayoutGrid, List, Calendar, Users } from 'lucide-react';
 import { StatusBadge } from '@/components/StatusBadge';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { mockProjects } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { motion } from 'framer-motion';
+import { Card, CardContent } from '@/components/ui/card';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -15,7 +16,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Project, ProjectStatus, ProjectPriority } from '@/types/crm';
 import { toast } from 'sonner';
 
@@ -34,10 +34,37 @@ const priorityOptions: { value: ProjectPriority; label: string }[] = [
   { value: 'critical', label: 'Kritisk' },
 ];
 
+const statusColors: Record<ProjectStatus, string> = {
+  pending: 'border-t-[hsl(var(--status-pending))]',
+  working: 'border-t-[hsl(var(--status-working))]',
+  review: 'border-t-[hsl(var(--status-review))]',
+  done: 'border-t-[hsl(var(--status-done))]',
+  stuck: 'border-t-[hsl(var(--status-stuck))]',
+};
+
+const statusBgColors: Record<ProjectStatus, string> = {
+  pending: 'bg-[hsl(var(--status-pending))]',
+  working: 'bg-[hsl(var(--status-working))]',
+  review: 'bg-[hsl(var(--status-review))]',
+  done: 'bg-[hsl(var(--status-done))]',
+  stuck: 'bg-[hsl(var(--status-stuck))]',
+};
+
+const statusLabels: Record<ProjectStatus, string> = {
+  pending: 'Väntande',
+  working: 'Pågår',
+  review: 'Granskning',
+  done: 'Klar',
+  stuck: 'Blockerad',
+};
+
+type ViewMode = 'table' | 'kanban';
+
 export default function Projects() {
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>(mockProjects);
   const [filter, setFilter] = useState<ProjectStatus | 'all'>('all');
+  const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editData, setEditData] = useState<Partial<Project>>({});
@@ -101,16 +128,47 @@ export default function Projects() {
     toast.success('Projekt skapat!');
   };
 
+  const moveProject = (id: string, newStatus: ProjectStatus) => {
+    updateProject(id, { status: newStatus });
+    toast.success(`Flyttad till ${statusLabels[newStatus]}`);
+  };
+
   const isEditing = (id: string) => editingId === id;
+
+  const totalBudget = projects.reduce((s, p) => s + p.budget, 0);
+  const totalSpent = projects.reduce((s, p) => s + p.spent, 0);
 
   return (
     <div className="space-y-6 max-w-7xl">
+      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-heading font-bold">Projekt</h1>
-          <p className="text-muted-foreground">{projects.length} projekt totalt</p>
+          <p className="text-muted-foreground">{projects.length} projekt · {(totalBudget / 1000).toFixed(0)}k kr total budget</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          {/* View toggle */}
+          <div className="flex rounded-lg border bg-muted/50 p-0.5">
+            <Button
+              variant={viewMode === 'table' ? 'default' : 'ghost'}
+              size="sm"
+              className="h-7 px-2.5 gap-1.5"
+              onClick={() => setViewMode('table')}
+            >
+              <List className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline text-xs">Tabell</span>
+            </Button>
+            <Button
+              variant={viewMode === 'kanban' ? 'default' : 'ghost'}
+              size="sm"
+              className="h-7 px-2.5 gap-1.5"
+              onClick={() => setViewMode('kanban')}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline text-xs">Kanban</span>
+            </Button>
+          </div>
+
           <Select value={filter} onValueChange={(v) => setFilter(v as ProjectStatus | 'all')}>
             <SelectTrigger className="w-36 h-9">
               <Filter className="h-4 w-4 mr-2" />
@@ -121,6 +179,7 @@ export default function Projects() {
               {statusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
             </SelectContent>
           </Select>
+
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button><Plus className="h-4 w-4 mr-2" />Nytt Projekt</Button>
@@ -163,184 +222,244 @@ export default function Projects() {
         </div>
       </div>
 
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-card rounded-xl border shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b bg-muted/30">
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Projekt</th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Kund</th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Status</th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Prioritet</th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Ansvarig</th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Budget</th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Deadline</th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3 w-20"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {filtered.map((project, i) => {
-                const pct = project.budget > 0 ? Math.round((project.spent / project.budget) * 100) : 0;
-                const editing = isEditing(project.id);
-                return (
-                  <motion.tr
-                    key={project.id}
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.03 }}
-                    className="group hover:bg-muted/30 transition-colors cursor-pointer"
-                    onClick={() => !editing && navigate(`/projects/${project.id}`)}
-                  >
-                    <td className="px-5 py-3.5">
-                      {editing ? (
-                        <Input
-                          value={editData.name || ''}
-                          onChange={e => setEditData({ ...editData, name: e.target.value })}
-                          className="h-8 text-sm"
-                          onClick={e => e.stopPropagation()}
-                        />
-                      ) : (
-                        <>
-                          <p className="font-medium text-sm">{project.name}</p>
-                          <div className="flex gap-1.5 mt-1">
-                            {project.tags.map(tag => (
-                              <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full bg-accent text-accent-foreground font-medium">{tag}</span>
+      <AnimatePresence mode="wait">
+        {viewMode === 'kanban' ? (
+          /* ========== KANBAN VIEW ========== */
+          <motion.div
+            key="kanban"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="flex gap-4 overflow-x-auto pb-4"
+          >
+            {statusOptions.map(status => {
+              const columnProjects = projects.filter(p => p.status === status.value);
+              return (
+                <div key={status.value} className="min-w-[280px] w-[280px] shrink-0">
+                  {/* Column header */}
+                  <div className="flex items-center gap-2 mb-3 px-1">
+                    <div className={`w-3 h-3 rounded-sm ${statusBgColors[status.value]}`} />
+                    <span className="font-heading font-semibold text-sm">{status.label}</span>
+                    <span className="text-xs text-muted-foreground bg-muted rounded-full px-2 py-0.5">
+                      {columnProjects.length}
+                    </span>
+                  </div>
+
+                  {/* Cards */}
+                  <div className="space-y-2.5">
+                    {columnProjects.map((project, i) => {
+                      const pct = project.budget > 0 ? Math.round((project.spent / project.budget) * 100) : 0;
+                      return (
+                        <motion.div
+                          key={project.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.05 }}
+                          className={`kanban-card bg-card rounded-lg border border-t-[3px] ${statusColors[project.status]} p-3.5 cursor-pointer group`}
+                          onClick={() => navigate(`/projects/${project.id}`)}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="font-medium text-sm group-hover:text-primary transition-colors">{project.name}</p>
+                            <PriorityBadge priority={project.priority} />
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">{project.client}</p>
+
+                          {/* Tags */}
+                          {project.tags.length > 0 && (
+                            <div className="flex gap-1 mt-2 flex-wrap">
+                              {project.tags.map(tag => (
+                                <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded bg-accent text-accent-foreground font-medium">{tag}</span>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Budget progress */}
+                          <div className="mt-3">
+                            <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                              <span>{(project.spent / 1000).toFixed(0)}k spenderat</span>
+                              <span>{(project.budget / 1000).toFixed(0)}k kr</span>
+                            </div>
+                            <Progress value={pct} className={`h-1.5 ${pct > 90 ? '[&>div]:bg-red-500' : ''}`} />
+                          </div>
+
+                          {/* Footer */}
+                          <div className="flex items-center justify-between mt-3 pt-2 border-t">
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
+                                <Users className="h-3 w-3 text-primary" />
+                              </div>
+                              <span className="text-[11px] text-muted-foreground">{project.assignee}</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                              <Calendar className="h-3 w-3" />
+                              {project.deadline}
+                            </div>
+                          </div>
+
+                          {/* Quick move buttons on hover */}
+                          <div className="flex gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                            {statusOptions.filter(s => s.value !== project.status).slice(0, 3).map(s => (
+                              <button
+                                key={s.value}
+                                onClick={() => moveProject(project.id, s.value)}
+                                className="flex-1 text-[10px] py-1 rounded bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors truncate px-1"
+                              >
+                                {s.label}
+                              </button>
                             ))}
                           </div>
-                        </>
-                      )}
-                    </td>
-                    <td className="px-5 py-3.5 text-sm">
-                      {editing ? (
-                        <Input
-                          value={editData.client || ''}
-                          onChange={e => setEditData({ ...editData, client: e.target.value })}
-                          className="h-8 text-sm"
-                          onClick={e => e.stopPropagation()}
-                        />
-                      ) : project.client}
-                    </td>
-                    <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
-                      <Select
-                        value={project.status}
-                        onValueChange={v => {
-                          updateProject(project.id, { status: v as ProjectStatus });
-                          toast.success('Status uppdaterad!');
-                        }}
+                        </motion.div>
+                      );
+                    })}
+
+                    {columnProjects.length === 0 && (
+                      <div className="rounded-lg border border-dashed p-6 text-center text-xs text-muted-foreground">
+                        Inga projekt
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </motion.div>
+        ) : (
+          /* ========== TABLE VIEW ========== */
+          <motion.div
+            key="table"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="bg-card rounded-xl border shadow-sm overflow-hidden"
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b bg-muted/30">
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Projekt</th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Kund</th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Status</th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Prioritet</th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Ansvarig</th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Budget</th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Deadline</th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3 w-20"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {filtered.map((project, i) => {
+                    const pct = project.budget > 0 ? Math.round((project.spent / project.budget) * 100) : 0;
+                    const editing = isEditing(project.id);
+                    return (
+                      <motion.tr
+                        key={project.id}
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.03 }}
+                        className="monday-row group cursor-pointer"
+                        onClick={() => !editing && navigate(`/projects/${project.id}`)}
                       >
-                        <SelectTrigger className="h-8 w-32 border-none bg-transparent p-0 shadow-none focus:ring-0 [&>svg]:opacity-0 hover:[&>svg]:opacity-100">
-                          <StatusBadge status={project.status} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {statusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </td>
-                    <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
-                      <Select
-                        value={project.priority}
-                        onValueChange={v => {
-                          updateProject(project.id, { priority: v as ProjectPriority });
-                          toast.success('Prioritet uppdaterad!');
-                        }}
-                      >
-                        <SelectTrigger className="h-8 w-28 border-none bg-transparent p-0 shadow-none focus:ring-0 [&>svg]:opacity-0 hover:[&>svg]:opacity-100">
-                          <PriorityBadge priority={project.priority} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {priorityOptions.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </td>
-                    <td className="px-5 py-3.5 text-sm">
-                      {editing ? (
-                        <Input
-                          value={editData.assignee || ''}
-                          onChange={e => setEditData({ ...editData, assignee: e.target.value })}
-                          className="h-8 text-sm"
-                          onClick={e => e.stopPropagation()}
-                        />
-                      ) : project.assignee}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      {editing ? (
-                        <Input
-                          type="number"
-                          value={editData.budget || 0}
-                          onChange={e => setEditData({ ...editData, budget: Number(e.target.value) })}
-                          className="h-8 text-sm w-24"
-                          onClick={e => e.stopPropagation()}
-                        />
-                      ) : (
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-xs">
-                            <span>{(project.spent / 1000).toFixed(0)}k</span>
-                            <span className="text-muted-foreground">{(project.budget / 1000).toFixed(0)}k kr</span>
-                          </div>
-                          <Progress value={pct} className="h-1.5" />
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-5 py-3.5 text-sm text-muted-foreground">
-                      {editing ? (
-                        <Input
-                          type="date"
-                          value={editData.deadline || ''}
-                          onChange={e => setEditData({ ...editData, deadline: e.target.value })}
-                          className="h-8 text-sm"
-                          onClick={e => e.stopPropagation()}
-                        />
-                      ) : project.deadline}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      {editing ? (
-                        <div className="flex gap-1">
-                          <Button size="icon" variant="ghost" className="h-7 w-7 text-status-done" onClick={saveEdit}>
-                            <Check className="h-4 w-4" />
-                          </Button>
-                          <Button size="icon" variant="ghost" className="h-7 w-7 text-status-stuck" onClick={cancelEdit}>
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="flex gap-1">
-                          <Button size="icon" variant="ghost" className="h-7 w-7 opacity-0 group-hover:opacity-100" onClick={(e) => startEdit(e, project)}>
-                            <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button size="icon" variant="ghost" className="h-7 w-7 opacity-0 group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
-                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        <td className="px-5 py-3.5">
+                          {editing ? (
+                            <Input value={editData.name || ''} onChange={e => setEditData({ ...editData, name: e.target.value })} className="h-8 text-sm" onClick={e => e.stopPropagation()} />
+                          ) : (
+                            <>
+                              <p className="font-medium text-sm">{project.name}</p>
+                              <div className="flex gap-1.5 mt-1">
+                                {project.tags.map(tag => (
+                                  <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full bg-accent text-accent-foreground font-medium">{tag}</span>
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </td>
+                        <td className="px-5 py-3.5 text-sm">
+                          {editing ? (
+                            <Input value={editData.client || ''} onChange={e => setEditData({ ...editData, client: e.target.value })} className="h-8 text-sm" onClick={e => e.stopPropagation()} />
+                          ) : project.client}
+                        </td>
+                        <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
+                          <Select value={project.status} onValueChange={v => { updateProject(project.id, { status: v as ProjectStatus }); toast.success('Status uppdaterad!'); }}>
+                            <SelectTrigger className="h-8 w-32 border-none bg-transparent p-0 shadow-none focus:ring-0 [&>svg]:opacity-0 hover:[&>svg]:opacity-100">
+                              <StatusBadge status={project.status} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {statusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </td>
+                        <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
+                          <Select value={project.priority} onValueChange={v => { updateProject(project.id, { priority: v as ProjectPriority }); toast.success('Prioritet uppdaterad!'); }}>
+                            <SelectTrigger className="h-8 w-28 border-none bg-transparent p-0 shadow-none focus:ring-0 [&>svg]:opacity-0 hover:[&>svg]:opacity-100">
+                              <PriorityBadge priority={project.priority} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {priorityOptions.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </td>
+                        <td className="px-5 py-3.5 text-sm">
+                          {editing ? (
+                            <Input value={editData.assignee || ''} onChange={e => setEditData({ ...editData, assignee: e.target.value })} className="h-8 text-sm" onClick={e => e.stopPropagation()} />
+                          ) : project.assignee}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          {editing ? (
+                            <Input type="number" value={editData.budget || 0} onChange={e => setEditData({ ...editData, budget: Number(e.target.value) })} className="h-8 text-sm w-24" onClick={e => e.stopPropagation()} />
+                          ) : (
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-xs">
+                                <span>{(project.spent / 1000).toFixed(0)}k</span>
+                                <span className="text-muted-foreground">{(project.budget / 1000).toFixed(0)}k kr</span>
+                              </div>
+                              <Progress value={pct} className={`h-1.5 ${pct > 90 ? '[&>div]:bg-red-500' : ''}`} />
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-5 py-3.5 text-sm text-muted-foreground">
+                          {editing ? (
+                            <Input type="date" value={editData.deadline || ''} onChange={e => setEditData({ ...editData, deadline: e.target.value })} className="h-8 text-sm" onClick={e => e.stopPropagation()} />
+                          ) : project.deadline}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          {editing ? (
+                            <div className="flex gap-1">
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-[hsl(var(--status-done))]" onClick={saveEdit}><Check className="h-4 w-4" /></Button>
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-[hsl(var(--status-stuck))]" onClick={cancelEdit}><X className="h-4 w-4" /></Button>
+                            </div>
+                          ) : (
+                            <div className="flex gap-1">
+                              <Button size="icon" variant="ghost" className="h-7 w-7 opacity-0 group-hover:opacity-100" onClick={(e) => startEdit(e, project)}>
+                                <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                               </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Ta bort projekt?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Är du säker på att du vill ta bort {project.name}? Detta kan inte ångras.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Avbryt</AlertDialogCancel>
-                                <AlertDialogAction
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                  onClick={(e) => deleteProject(e, project.id)}
-                                >
-                                  Ta bort
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      )}
-                    </td>
-                  </motion.tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </motion.div>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button size="icon" variant="ghost" className="h-7 w-7 opacity-0 group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
+                                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Ta bort projekt?</AlertDialogTitle>
+                                    <AlertDialogDescription>Är du säker på att du vill ta bort {project.name}? Detta kan inte ångras.</AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                                    <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={(e) => deleteProject(e, project.id)}>Ta bort</AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          )}
+                        </td>
+                      </motion.tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

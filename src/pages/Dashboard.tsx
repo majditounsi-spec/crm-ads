@@ -40,7 +40,8 @@ export default function Dashboard() {
   const { contacts } = useContacts();
   const totalBudget = mockProjects.reduce((sum, p) => sum + p.budget, 0);
   const totalSpent = mockProjects.reduce((sum, p) => sum + p.spent, 0);
-  const todayHours = mockTimeEntries.filter(e => e.date === '2026-03-10').reduce((sum, e) => sum + e.hours, 0);
+  const today = new Date().toISOString().split('T')[0];
+  const todayHours = mockTimeEntries.filter(e => e.date === today).reduce((sum, e) => sum + e.hours, 0);
   const activeProjects = mockProjects.filter(p => p.status !== 'done').length;
   const totalTasks = mockTasks.length;
   const completedTasks = mockTasks.filter(t => t.completed).length;
@@ -256,7 +257,7 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="flex items-center gap-4">
-                <span className="text-xs text-muted-foreground">{entry.date}</span>
+                <span className="text-xs text-muted-foreground">{new Date(entry.date + 'T12:00:00').toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' })}</span>
                 <span className="text-xs text-muted-foreground">{entry.assignee}</span>
                 <span className="font-heading font-bold text-sm bg-primary/10 text-primary px-2 py-0.5 rounded-md">{entry.hours}h</span>
               </div>

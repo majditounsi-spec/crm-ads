@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { Outlet, useLocation } from 'react-router-dom';
-import { Bell, Search, Plus, Command } from 'lucide-react';
+import { Bell, Search, Plus, Command, Clock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,8 +18,25 @@ const pageTitles: Record<string, string> = {
   '/automations': 'Automationer',
 };
 
+function useSwedishClock() {
+  const [time, setTime] = useState('');
+  const [date, setDate] = useState('');
+  useEffect(() => {
+    const update = () => {
+      const now = new Date();
+      setTime(now.toLocaleTimeString('sv-SE', { timeZone: 'Europe/Stockholm', hour: '2-digit', minute: '2-digit' }));
+      setDate(now.toLocaleDateString('sv-SE', { timeZone: 'Europe/Stockholm', weekday: 'short', day: 'numeric', month: 'short' }));
+    };
+    update();
+    const interval = setInterval(update, 30000);
+    return () => clearInterval(interval);
+  }, []);
+  return { time, date };
+}
+
 export function Layout() {
   const location = useLocation();
+  const { time, date } = useSwedishClock();
   const [notifications] = useState([
     { id: 1, text: 'Nordic Food deadline om 2 dagar', time: '1h sedan', read: false },
     { id: 2, text: 'GreenEnergy projekt blockerat', time: '3h sedan', read: false },
@@ -46,7 +63,14 @@ export function Layout() {
                 </kbd>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              {/* Swedish Clock */}
+              <div className="hidden md:flex items-center gap-1.5 text-sm text-muted-foreground mr-1">
+                <Clock className="h-3.5 w-3.5" />
+                <span className="font-medium tabular-nums">{time}</span>
+                <span className="text-xs capitalize">{date}</span>
+              </div>
+
               {/* Notifications */}
               <Popover>
                 <PopoverTrigger asChild>
