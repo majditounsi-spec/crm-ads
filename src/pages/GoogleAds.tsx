@@ -10,7 +10,6 @@ import {
 } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
@@ -94,7 +93,6 @@ export default function GoogleAds() {
   const totalMonthlyBudget = adsContacts.reduce((s, c) => s + c.budget, 0);
   const totalYearlyBudget = totalMonthlyBudget * 12;
   const totalDailySpendThisMonth = monthlyBudgets.reduce((s, b) => s + b.dailySpend, 0);
-  const totalDailyBudgetThisMonth = monthlyBudgets.reduce((s, b) => s + b.dailyBudget, 0);
   const totalImpressions = monthlyBudgets.reduce((s, b) => s + b.impressions, 0);
   const totalClicks = monthlyBudgets.reduce((s, b) => s + b.clicks, 0);
 
@@ -268,7 +266,7 @@ export default function GoogleAds() {
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {[
-          { title: 'ADS-kunder', value: adsContacts.length, icon: Users, color: 'from-violet-500/10 to-violet-500/5', iconColor: 'text-violet-500 bg-violet-500/10' },
+          { title: 'ADS-kunder', value: String(adsContacts.length), icon: Users, color: 'from-violet-500/10 to-violet-500/5', iconColor: 'text-violet-500 bg-violet-500/10' },
           { title: 'Månadsbudget', value: `${(totalMonthlyBudget / 1000).toFixed(0)}k kr`, icon: DollarSign, color: 'from-blue-500/10 to-blue-500/5', iconColor: 'text-blue-500 bg-blue-500/10' },
           { title: 'Årsbudget', value: `${(totalYearlyBudget / 1000).toFixed(0)}k kr`, icon: TrendingUp, color: 'from-emerald-500/10 to-emerald-500/5', iconColor: 'text-emerald-500 bg-emerald-500/10' },
           { title: `Spend ${MONTHS[selectedMonth]}`, value: totalDailySpendThisMonth > 0 ? `${(totalDailySpendThisMonth / 1000).toFixed(1)}k kr` : '—', icon: BarChart3, color: 'from-amber-500/10 to-amber-500/5', iconColor: 'text-amber-500 bg-amber-500/10' },
@@ -329,9 +327,7 @@ export default function GoogleAds() {
                 <TableRow className="bg-muted/30">
                   <TableHead className="sticky left-0 bg-muted/30 z-10 min-w-[160px]">Kund</TableHead>
                   <TableHead className="text-center min-w-[80px]">CRM Budget</TableHead>
-                  {days.map(d => (
-                    <TableHead key={d} className="text-center min-w-[50px] text-xs">{d}</TableHead>
-                  ))}
+                  {days.map(d => <TableHead key={d} className="text-center min-w-[50px] text-xs">{d}</TableHead>)}
                   <TableHead className="text-center min-w-[80px] font-bold">Totalt</TableHead>
                 </TableRow>
               </TableHeader>
@@ -340,39 +336,22 @@ export default function GoogleAds() {
                   const dailyData = getDailyDataForContact(contact.id);
                   const totalSpend = Object.values(dailyData).reduce((s, d) => s + d.spend, 0);
                   return (
-                    <motion.tr
-                      key={contact.id}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.03 }}
-                      className="monday-row border-b"
-                    >
+                    <motion.tr key={contact.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }} className="monday-row border-b">
                       <TableCell className="sticky left-0 bg-card z-10">
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-sm">{contact.name}</span>
                           {contact.website && (
-                            <a href={contact.website} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary">
-                              <ExternalLink className="h-3 w-3" />
-                            </a>
+                            <a href={contact.website} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary"><ExternalLink className="h-3 w-3" /></a>
                           )}
                         </div>
-                        {contact.googleAdsCustomerId && (
-                          <span className="text-[10px] text-muted-foreground">{contact.googleAdsCustomerId}</span>
-                        )}
                       </TableCell>
-                      <TableCell className="text-center">
-                        <span className="text-xs font-medium text-muted-foreground">{contact.budget.toLocaleString('sv-SE')} kr</span>
-                      </TableCell>
+                      <TableCell className="text-center"><span className="text-xs font-medium text-muted-foreground">{contact.budget.toLocaleString('sv-SE')} kr</span></TableCell>
                       {days.map(d => {
                         const data = dailyData[d];
                         return (
                           <TableCell key={d} className="text-center p-1">
                             {data ? (
-                              <div className="text-xs" title={`Budget: ${data.budget} kr\nSpend: ${data.spend} kr\nKlick: ${data.clicks}\nVisningar: ${data.impressions}`}>
-                                <span className={`font-medium ${data.spend > data.budget ? 'text-red-500' : 'text-foreground'}`}>
-                                  {Math.round(data.spend)}
-                                </span>
-                              </div>
+                              <span className={`text-xs font-medium ${data.spend > data.budget ? 'text-red-500' : ''}`}>{Math.round(data.spend)}</span>
                             ) : (
                               <span className="text-muted-foreground/20 text-xs">·</span>
                             )}
@@ -380,40 +359,28 @@ export default function GoogleAds() {
                         );
                       })}
                       <TableCell className="text-center">
-                        <span className="font-bold text-sm">
-                          {totalSpend > 0 ? `${totalSpend.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr` : '—'}
-                        </span>
+                        <span className="font-bold text-sm">{totalSpend > 0 ? `${totalSpend.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr` : '—'}</span>
                       </TableCell>
                     </motion.tr>
                   );
                 })}
-
                 <TableRow className="bg-muted/50 font-bold border-t-2">
                   <TableCell className="sticky left-0 bg-muted/50 z-10">Totalt</TableCell>
                   <TableCell className="text-center">{filtered.reduce((s, c) => s + c.budget, 0).toLocaleString('sv-SE')} kr</TableCell>
                   {days.map(d => {
-                    const dayTotal = filtered.reduce((sum, c) => {
-                      const data = getDailyDataForContact(c.id);
-                      return sum + (data[d]?.spend || 0);
-                    }, 0);
+                    const dayTotal = filtered.reduce((sum, c) => sum + (getDailyDataForContact(c.id)[d]?.spend || 0), 0);
                     return <TableCell key={d} className="text-center text-xs">{dayTotal > 0 ? Math.round(dayTotal) : '·'}</TableCell>;
                   })}
                   <TableCell className="text-center text-primary font-bold">
                     {(() => {
-                      const total = filtered.reduce((sum, c) => {
-                        const data = getDailyDataForContact(c.id);
-                        return sum + Object.values(data).reduce((s, d) => s + d.spend, 0);
-                      }, 0);
+                      const total = filtered.reduce((sum, c) => sum + Object.values(getDailyDataForContact(c.id)).reduce((s, d) => s + d.spend, 0), 0);
                       return total > 0 ? `${total.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr` : '—';
                     })()}
                   </TableCell>
                 </TableRow>
               </TableBody>
             </Table>
-
-            {filtered.length === 0 && (
-              <div className="text-center py-12 text-muted-foreground">Inga ADS-kunder hittades</div>
-            )}
+            {filtered.length === 0 && <div className="text-center py-12 text-muted-foreground">Inga ADS-kunder hittades</div>}
           </CardContent>
         </Card>
       </motion.div>
@@ -443,19 +410,10 @@ export default function GoogleAds() {
                   const yearTotal = monthlyData.reduce((s, v) => s + (v?.plannedBudget || 0), 0);
                   return (
                     <motion.tr key={contact.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }} className="monday-row border-b">
-                      <TableCell className="sticky left-0 bg-card z-10">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm">{contact.name}</span>
-                          {contact.website && (
-                            <a href={contact.website} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary"><ExternalLink className="h-3 w-3" /></a>
-                          )}
-                        </div>
-                      </TableCell>
+                      <TableCell className="sticky left-0 bg-card z-10"><span className="font-medium text-sm">{contact.name}</span></TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
-                          {parseServices(contact.service).map(svc => (
-                            <Badge key={svc} variant="secondary" className="text-[10px] px-1.5 py-0">{svc}</Badge>
-                          ))}
+                          {parseServices(contact.service).map(svc => <Badge key={svc} variant="secondary" className="text-[10px] px-1.5 py-0">{svc}</Badge>)}
                         </div>
                       </TableCell>
                       {monthlyData.map((val, mi) => (
@@ -463,56 +421,26 @@ export default function GoogleAds() {
                           {val !== null ? (
                             <div>
                               <span className="text-xs font-medium">{val.plannedBudget.toLocaleString('sv-SE')}</span>
-                              {val.hasData && (
-                                <div className={`text-[10px] ${val.actualSpend > val.plannedBudget ? 'text-red-500 font-semibold' : 'text-muted-foreground'}`}>
-                                  {val.actualSpend.toLocaleString('sv-SE', { maximumFractionDigits: 0 })}
-                                </div>
-                              )}
+                              {val.hasData && <div className={`text-[10px] ${val.actualSpend > val.plannedBudget ? 'text-red-500 font-semibold' : 'text-muted-foreground'}`}>{val.actualSpend.toLocaleString('sv-SE', { maximumFractionDigits: 0 })}</div>}
                             </div>
-                          ) : (
-                            <span className="text-muted-foreground/20">·</span>
-                          )}
+                          ) : <span className="text-muted-foreground/20">·</span>}
                         </TableCell>
                       ))}
-                      <TableCell className="text-center">
-                        <span className="font-bold text-sm">{yearTotal > 0 ? `${yearTotal.toLocaleString('sv-SE')} kr` : '—'}</span>
-                      </TableCell>
+                      <TableCell className="text-center"><span className="font-bold text-sm">{yearTotal > 0 ? `${yearTotal.toLocaleString('sv-SE')} kr` : '—'}</span></TableCell>
                     </motion.tr>
                   );
                 })}
-
                 <TableRow className="bg-muted/50 font-bold border-t-2">
                   <TableCell className="sticky left-0 bg-muted/50 z-10">Totalt</TableCell>
                   <TableCell></TableCell>
-                  {monthlyTotals.map((total, mi) => (
-                    <TableCell key={mi} className="text-center text-xs">{total > 0 ? total.toLocaleString('sv-SE') : '—'}</TableCell>
-                  ))}
-                  <TableCell className="text-center text-primary font-bold">
-                    {monthlyTotals.reduce((s, v) => s + v, 0).toLocaleString('sv-SE')} kr
-                  </TableCell>
+                  {monthlyTotals.map((total, mi) => <TableCell key={mi} className="text-center text-xs">{total > 0 ? total.toLocaleString('sv-SE') : '—'}</TableCell>)}
+                  <TableCell className="text-center text-primary font-bold">{monthlyTotals.reduce((s, v) => s + v, 0).toLocaleString('sv-SE')} kr</TableCell>
                 </TableRow>
               </TableBody>
             </Table>
           </CardContent>
         </Card>
       </motion.div>
-
-      {/* Notes */}
-      {filtered.filter(c => c.comment).length > 0 && (
-        <motion.div variants={item}>
-          <h2 className="text-base font-heading font-semibold mb-3">Anteckningar</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {filtered.filter(c => c.comment).map(c => (
-              <Card key={c.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="pt-4">
-                  <p className="font-medium text-sm">{c.name}</p>
-                  <p className="text-muted-foreground text-sm mt-1">{c.comment}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </motion.div>
-      )}
     </motion.div>
   );
 }

@@ -157,11 +157,15 @@ export default function Contacts() {
     ));
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="space-y-6 max-w-7xl"
+    >
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-3xl font-heading font-bold text-foreground">Kontakter</h1>
-          <p className="text-muted-foreground mt-1">Hantera kunder och kontaktinformation</p>
+          <h1 className="text-2xl font-heading font-bold">Kontakter</h1>
+          <p className="text-muted-foreground">{contacts.length} kunder · {totalBudget.toLocaleString('sv-SE')} kr total budget</p>
         </div>
         <Button onClick={() => setIsAddOpen(true)}>
           <Plus className="h-4 w-4 mr-2" /> Lägg till kund
@@ -169,23 +173,20 @@ export default function Contacts() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card><CardContent className="pt-6">
-          <p className="text-sm text-muted-foreground">Totalt kunder</p>
-          <p className="text-2xl font-heading font-bold text-foreground">{contacts.length}</p>
-        </CardContent></Card>
-        <Card><CardContent className="pt-6">
-          <p className="text-sm text-muted-foreground">Aktiva</p>
-          <p className="text-2xl font-heading font-bold text-[hsl(var(--status-done))]">{activeCount}</p>
-        </CardContent></Card>
-        <Card><CardContent className="pt-6">
-          <p className="text-sm text-muted-foreground">Total budget</p>
-          <p className="text-2xl font-heading font-bold text-foreground">{totalBudget.toLocaleString()} kr</p>
-        </CardContent></Card>
-        <Card><CardContent className="pt-6">
-          <p className="text-sm text-muted-foreground">Snittbudget</p>
-          <p className="text-2xl font-heading font-bold text-foreground">{avgBudget.toLocaleString()} kr</p>
-        </CardContent></Card>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { title: 'Totalt kunder', value: contacts.length, color: 'from-violet-500/10 to-violet-500/5', iconColor: 'text-violet-500' },
+          { title: 'Aktiva', value: activeCount, color: 'from-emerald-500/10 to-emerald-500/5', iconColor: 'text-emerald-500' },
+          { title: 'Total budget', value: `${(totalBudget / 1000).toFixed(0)}k kr`, color: 'from-blue-500/10 to-blue-500/5', iconColor: 'text-blue-500' },
+          { title: 'Snittbudget', value: `${avgBudget.toLocaleString('sv-SE')} kr`, color: 'from-amber-500/10 to-amber-500/5', iconColor: 'text-amber-500' },
+        ].map(stat => (
+          <Card key={stat.title} className="overflow-hidden hover:shadow-md transition-shadow">
+            <CardContent className={`pt-4 pb-3 bg-gradient-to-br ${stat.color}`}>
+              <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">{stat.title}</p>
+              <p className="text-xl font-heading font-bold mt-1">{stat.value}</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       {/* Filters */}
@@ -236,7 +237,7 @@ export default function Contacts() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.02 }}
-                  className="border-b transition-colors hover:bg-muted/50 cursor-pointer group"
+                  className="monday-row border-b cursor-pointer group"
                   onClick={() => openDetail(contact)}
                 >
                   <TableCell>
@@ -637,6 +638,6 @@ export default function Contacts() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </motion.div>
   );
 }
