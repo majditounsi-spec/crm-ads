@@ -11,6 +11,7 @@ import TimeTracking from "@/pages/TimeTracking";
 import Automations from "@/pages/Automations";
 import Contacts from "@/pages/Contacts";
 import GoogleAds from "@/pages/GoogleAds";
+import SalesBoard from "@/pages/SalesBoard";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/automations" element={<Automations />} />
             <Route path="/contacts" element={<Contacts />} />
             <Route path="/google-ads" element={<GoogleAds />} />
+            <Route path="/sales" element={<SalesBoard />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

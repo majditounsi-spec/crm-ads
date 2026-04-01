@@ -1,19 +1,19 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Filter, Pencil, Check, X, Trash2, LayoutGrid, List, Calendar, Users } from 'lucide-react';
+import { Plus, Filter, Trash2, LayoutGrid, List, Calendar, Users, DollarSign, GripVertical } from 'lucide-react';
 import { StatusBadge } from '@/components/StatusBadge';
 import { PriorityBadge } from '@/components/PriorityBadge';
-import { mockProjects } from '@/data/mockData';
+import { useProjects } from '@/hooks/useProjects';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Project, ProjectStatus, ProjectPriority } from '@/types/crm';
@@ -62,45 +62,17 @@ type ViewMode = 'table' | 'kanban';
 
 export default function Projects() {
   const navigate = useNavigate();
-  const [projects, setProjects] = useState<Project[]>(mockProjects);
+  const { projects, addProject, updateProject, deleteProject } = useProjects();
   const [filter, setFilter] = useState<ProjectStatus | 'all'>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editData, setEditData] = useState<Partial<Project>>({});
-  const [newProject, setNewProject] = useState({ name: '', client: '', status: 'pending' as ProjectStatus, priority: 'medium' as ProjectPriority, deadline: '', budget: '' });
+  const [newProject, setNewProject] = useState({ name: '', client: '', status: 'pending' as ProjectStatus, priority: 'medium' as ProjectPriority, deadline: '', budget: '', assignee: '' });
 
   const filtered = filter === 'all' ? projects : projects.filter(p => p.status === filter);
 
-  const updateProject = (id: string, updates: Partial<Project>) => {
-    setProjects(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
-  };
-
-  const startEdit = (e: React.MouseEvent, project: Project) => {
+  const handleDelete = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    setEditingId(project.id);
-    setEditData({ name: project.name, client: project.client, assignee: project.assignee, deadline: project.deadline, budget: project.budget });
-  };
-
-  const saveEdit = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (editingId) {
-      updateProject(editingId, editData);
-      toast.success('Projekt uppdaterat!');
-      setEditingId(null);
-      setEditData({});
-    }
-  };
-
-  const cancelEdit = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setEditingId(null);
-    setEditData({});
-  };
-
-  const deleteProject = (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    setProjects(prev => prev.filter(p => p.id !== id));
+    deleteProject(id);
     toast.success('Projekt borttaget!');
   };
 
@@ -109,8 +81,7 @@ export default function Projects() {
       toast.error('Fyll i projektnamn och kund');
       return;
     }
-    const project: Project = {
-      id: String(Date.now()),
+    addProject({
       name: newProject.name,
       client: newProject.client,
       status: newProject.status,
@@ -118,13 +89,11 @@ export default function Projects() {
       deadline: newProject.deadline || '2026-05-01',
       budget: Number(newProject.budget) || 0,
       spent: 0,
-      assignee: 'Ej tilldelad',
+      assignee: newProject.assignee || 'Ej tilldelad',
       tags: [],
-      createdAt: new Date().toISOString().split('T')[0],
-    };
-    setProjects([project, ...projects]);
+    });
     setDialogOpen(false);
-    setNewProject({ name: '', client: '', status: 'pending', priority: 'medium', deadline: '', budget: '' });
+    setNewProject({ name: '', client: '', status: 'pending', priority: 'medium', deadline: '', budget: '', assignee: '' });
     toast.success('Projekt skapat!');
   };
 
@@ -133,47 +102,31 @@ export default function Projects() {
     toast.success(`Flyttad till ${statusLabels[newStatus]}`);
   };
 
-  const isEditing = (id: string) => editingId === id;
-
   const totalBudget = projects.reduce((s, p) => s + p.budget, 0);
   const totalSpent = projects.reduce((s, p) => s + p.spent, 0);
+  const activeCount = projects.filter(p => p.status !== 'done').length;
 
   return (
-    <div className="space-y-6 max-w-7xl">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 max-w-7xl">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-heading font-bold">Projekt</h1>
-          <p className="text-muted-foreground">{projects.length} projekt · {(totalBudget / 1000).toFixed(0)}k kr total budget</p>
+          <p className="text-muted-foreground">{projects.length} projekt · {activeCount} aktiva · {(totalBudget / 1000).toFixed(0)}k kr budget</p>
         </div>
         <div className="flex items-center gap-2">
           {/* View toggle */}
-          <div className="flex rounded-lg border bg-muted/50 p-0.5">
-            <Button
-              variant={viewMode === 'table' ? 'default' : 'ghost'}
-              size="sm"
-              className="h-7 px-2.5 gap-1.5"
-              onClick={() => setViewMode('table')}
-            >
-              <List className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline text-xs">Tabell</span>
+          <div className="flex rounded-xl border bg-muted/50 p-0.5">
+            <Button variant={viewMode === 'table' ? 'default' : 'ghost'} size="sm" className={`h-7 px-2.5 gap-1.5 rounded-lg ${viewMode === 'table' ? 'bg-gradient-to-r from-primary to-violet-600 text-white' : ''}`} onClick={() => setViewMode('table')}>
+              <List className="h-3.5 w-3.5" /><span className="hidden sm:inline text-xs">Tabell</span>
             </Button>
-            <Button
-              variant={viewMode === 'kanban' ? 'default' : 'ghost'}
-              size="sm"
-              className="h-7 px-2.5 gap-1.5"
-              onClick={() => setViewMode('kanban')}
-            >
-              <LayoutGrid className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline text-xs">Kanban</span>
+            <Button variant={viewMode === 'kanban' ? 'default' : 'ghost'} size="sm" className={`h-7 px-2.5 gap-1.5 rounded-lg ${viewMode === 'kanban' ? 'bg-gradient-to-r from-primary to-violet-600 text-white' : ''}`} onClick={() => setViewMode('kanban')}>
+              <LayoutGrid className="h-3.5 w-3.5" /><span className="hidden sm:inline text-xs">Kanban</span>
             </Button>
           </div>
 
           <Select value={filter} onValueChange={(v) => setFilter(v as ProjectStatus | 'all')}>
-            <SelectTrigger className="w-36 h-9">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue />
-            </SelectTrigger>
+            <SelectTrigger className="w-36 h-9"><Filter className="h-4 w-4 mr-2" /><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Alla</SelectItem>
               {statusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
@@ -181,33 +134,24 @@ export default function Projects() {
           </Select>
 
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button><Plus className="h-4 w-4 mr-2" />Nytt Projekt</Button>
-            </DialogTrigger>
+            <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Nytt Projekt</Button></DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle className="font-heading">Skapa nytt projekt</DialogTitle></DialogHeader>
               <div className="space-y-4 pt-2">
                 <div><Label>Projektnamn</Label><Input value={newProject.name} onChange={e => setNewProject({...newProject, name: e.target.value})} placeholder="T.ex. SEO Kampanj" /></div>
                 <div><Label>Kund</Label><Input value={newProject.client} onChange={e => setNewProject({...newProject, client: e.target.value})} placeholder="Kundnamn" /></div>
+                <div><Label>Ansvarig</Label><Input value={newProject.assignee} onChange={e => setNewProject({...newProject, assignee: e.target.value})} placeholder="Namn" /></div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Status</Label>
+                  <div><Label>Status</Label>
                     <Select value={newProject.status} onValueChange={v => setNewProject({...newProject, status: v as ProjectStatus})}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">Väntande</SelectItem>
-                        <SelectItem value="working">Pågår</SelectItem>
-                        <SelectItem value="review">Granskning</SelectItem>
-                      </SelectContent>
+                      <SelectContent>{statusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
-                  <div>
-                    <Label>Prioritet</Label>
+                  <div><Label>Prioritet</Label>
                     <Select value={newProject.priority} onValueChange={v => setNewProject({...newProject, priority: v as ProjectPriority})}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {priorityOptions.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
-                      </SelectContent>
+                      <SelectContent>{priorityOptions.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                 </div>
@@ -225,37 +169,22 @@ export default function Projects() {
       <AnimatePresence mode="wait">
         {viewMode === 'kanban' ? (
           /* ========== KANBAN VIEW ========== */
-          <motion.div
-            key="kanban"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="flex gap-4 overflow-x-auto pb-4"
-          >
+          <motion.div key="kanban" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="flex gap-4 overflow-x-auto pb-4">
             {statusOptions.map(status => {
               const columnProjects = projects.filter(p => p.status === status.value);
               return (
                 <div key={status.value} className="min-w-[280px] w-[280px] shrink-0">
-                  {/* Column header */}
                   <div className="flex items-center gap-2 mb-3 px-1">
                     <div className={`w-3 h-3 rounded-sm ${statusBgColors[status.value]}`} />
                     <span className="font-heading font-semibold text-sm">{status.label}</span>
-                    <span className="text-xs text-muted-foreground bg-muted rounded-full px-2 py-0.5">
-                      {columnProjects.length}
-                    </span>
+                    <span className="text-xs text-muted-foreground bg-muted rounded-full px-2 py-0.5">{columnProjects.length}</span>
                   </div>
-
-                  {/* Cards */}
                   <div className="space-y-2.5">
                     {columnProjects.map((project, i) => {
                       const pct = project.budget > 0 ? Math.round((project.spent / project.budget) * 100) : 0;
                       return (
-                        <motion.div
-                          key={project.id}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: i * 0.05 }}
-                          className={`kanban-card bg-card rounded-lg border border-t-[3px] ${statusColors[project.status]} p-3.5 cursor-pointer group`}
+                        <motion.div key={project.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+                          className={`kanban-card bg-card rounded-xl border border-t-[3px] ${statusColors[project.status]} p-3.5 cursor-pointer group`}
                           onClick={() => navigate(`/projects/${project.id}`)}
                         >
                           <div className="flex items-start justify-between gap-2">
@@ -263,17 +192,11 @@ export default function Projects() {
                             <PriorityBadge priority={project.priority} />
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">{project.client}</p>
-
-                          {/* Tags */}
                           {project.tags.length > 0 && (
                             <div className="flex gap-1 mt-2 flex-wrap">
-                              {project.tags.map(tag => (
-                                <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded bg-accent text-accent-foreground font-medium">{tag}</span>
-                              ))}
+                              {project.tags.map(tag => <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded bg-accent text-accent-foreground font-medium">{tag}</span>)}
                             </div>
                           )}
-
-                          {/* Budget progress */}
                           <div className="mt-3">
                             <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
                               <span>{(project.spent / 1000).toFixed(0)}k spenderat</span>
@@ -281,192 +204,144 @@ export default function Projects() {
                             </div>
                             <Progress value={pct} className={`h-1.5 ${pct > 90 ? '[&>div]:bg-red-500' : ''}`} />
                           </div>
-
-                          {/* Footer */}
                           <div className="flex items-center justify-between mt-3 pt-2 border-t">
                             <div className="flex items-center gap-1.5">
-                              <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
-                                <Users className="h-3 w-3 text-primary" />
-                              </div>
+                              <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center"><Users className="h-3 w-3 text-primary" /></div>
                               <span className="text-[11px] text-muted-foreground">{project.assignee}</span>
                             </div>
-                            <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                              <Calendar className="h-3 w-3" />
-                              {project.deadline}
-                            </div>
+                            <div className="flex items-center gap-1 text-[11px] text-muted-foreground"><Calendar className="h-3 w-3" />{project.deadline}</div>
                           </div>
-
-                          {/* Quick move + delete buttons on hover */}
                           <div className="flex gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
                             {statusOptions.filter(s => s.value !== project.status).slice(0, 2).map(s => (
-                              <button
-                                key={s.value}
-                                onClick={() => moveProject(project.id, s.value)}
-                                className="flex-1 text-[10px] py-1 rounded bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors truncate px-1"
-                              >
-                                {s.label}
-                              </button>
+                              <button key={s.value} onClick={() => moveProject(project.id, s.value)} className="flex-1 text-[10px] py-1 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors truncate px-1">{s.label}</button>
                             ))}
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <button className="text-[10px] py-1 px-2 rounded bg-destructive/10 hover:bg-destructive/20 text-destructive transition-colors flex items-center gap-0.5">
-                                  <Trash2 className="h-3 w-3" />
-                                </button>
+                                <button className="text-[10px] py-1 px-2 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive transition-colors"><Trash2 className="h-3 w-3" /></button>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Ta bort projekt?</AlertDialogTitle>
-                                  <AlertDialogDescription>Är du säker på att du vill ta bort {project.name}? Detta kan inte ångras.</AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Avbryt</AlertDialogCancel>
-                                  <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={(e) => deleteProject(e, project.id)}>Ta bort</AlertDialogAction>
-                                </AlertDialogFooter>
+                                <AlertDialogHeader><AlertDialogTitle>Ta bort projekt?</AlertDialogTitle><AlertDialogDescription>Ta bort {project.name}? Detta kan inte ångras.</AlertDialogDescription></AlertDialogHeader>
+                                <AlertDialogFooter><AlertDialogCancel>Avbryt</AlertDialogCancel><AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={(e) => handleDelete(e, project.id)}>Ta bort</AlertDialogAction></AlertDialogFooter>
                               </AlertDialogContent>
                             </AlertDialog>
                           </div>
                         </motion.div>
                       );
                     })}
-
-                    {columnProjects.length === 0 && (
-                      <div className="rounded-lg border border-dashed p-6 text-center text-xs text-muted-foreground">
-                        Inga projekt
-                      </div>
-                    )}
+                    {columnProjects.length === 0 && <div className="rounded-xl border border-dashed p-6 text-center text-xs text-muted-foreground">Inga projekt</div>}
                   </div>
                 </div>
               );
             })}
           </motion.div>
         ) : (
-          /* ========== TABLE VIEW ========== */
-          <motion.div
-            key="table"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="bg-card rounded-xl border shadow-sm overflow-hidden"
-          >
+          /* ========== TABLE VIEW (Monday-style inline editing) ========== */
+          <motion.div key="table" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="bg-card rounded-xl border shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b bg-muted/30">
-                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Projekt</th>
-                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Kund</th>
-                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Status</th>
-                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Prioritet</th>
-                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Ansvarig</th>
-                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Budget</th>
-                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Deadline</th>
-                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3 w-20"></th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3 min-w-[200px]">Projekt</th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 py-3 min-w-[140px]">Kund</th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 py-3 w-[130px]">Status</th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 py-3 w-[110px]">Prioritet</th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 py-3 min-w-[120px]">Ansvarig</th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 py-3 w-[160px]">Budget</th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 py-3 w-[120px]">Deadline</th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 py-3 w-[50px]"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {filtered.map((project, i) => {
                     const pct = project.budget > 0 ? Math.round((project.spent / project.budget) * 100) : 0;
-                    const editing = isEditing(project.id);
                     return (
-                      <motion.tr
-                        key={project.id}
-                        initial={{ opacity: 0, y: 5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.03 }}
-                        className="monday-row group cursor-pointer"
-                        onClick={() => !editing && navigate(`/projects/${project.id}`)}
-                      >
-                        <td className="px-5 py-3.5">
-                          {editing ? (
-                            <Input value={editData.name || ''} onChange={e => setEditData({ ...editData, name: e.target.value })} className="h-8 text-sm" onClick={e => e.stopPropagation()} />
-                          ) : (
-                            <>
-                              <p className="font-medium text-sm">{project.name}</p>
-                              <div className="flex gap-1.5 mt-1">
-                                {project.tags.map(tag => (
-                                  <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full bg-accent text-accent-foreground font-medium">{tag}</span>
-                                ))}
-                              </div>
-                            </>
-                          )}
+                      <motion.tr key={project.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }} className="monday-row group">
+                        {/* Project name - click to navigate */}
+                        <td className="px-4 py-3">
+                          <div className="cursor-pointer" onClick={() => navigate(`/projects/${project.id}`)}>
+                            <Input
+                              value={project.name}
+                              onChange={e => { e.stopPropagation(); updateProject(project.id, { name: e.target.value }); }}
+                              onClick={e => e.stopPropagation()}
+                              className="h-8 text-sm font-medium border-none bg-transparent p-0 shadow-none focus-visible:ring-1 focus-visible:bg-background hover:bg-muted/50 rounded-lg px-2 -mx-2"
+                            />
+                            <div className="flex gap-1.5 mt-1 px-2 -mx-2">
+                              {project.tags.map(tag => <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full bg-accent text-accent-foreground font-medium">{tag}</span>)}
+                            </div>
+                          </div>
                         </td>
-                        <td className="px-5 py-3.5 text-sm">
-                          {editing ? (
-                            <Input value={editData.client || ''} onChange={e => setEditData({ ...editData, client: e.target.value })} className="h-8 text-sm" onClick={e => e.stopPropagation()} />
-                          ) : project.client}
+                        {/* Client - inline editable */}
+                        <td className="px-3 py-3">
+                          <Input
+                            value={project.client}
+                            onChange={e => updateProject(project.id, { client: e.target.value })}
+                            className="h-8 text-sm border-none bg-transparent p-0 shadow-none focus-visible:ring-1 focus-visible:bg-background hover:bg-muted/50 rounded-lg px-2"
+                          />
                         </td>
-                        <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
+                        {/* Status - dropdown */}
+                        <td className="px-3 py-3">
                           <Select value={project.status} onValueChange={v => { updateProject(project.id, { status: v as ProjectStatus }); toast.success('Status uppdaterad!'); }}>
-                            <SelectTrigger className="h-8 w-32 border-none bg-transparent p-0 shadow-none focus:ring-0 [&>svg]:opacity-0 hover:[&>svg]:opacity-100">
+                            <SelectTrigger className="h-8 w-full border-none bg-transparent p-0 px-1 shadow-none focus:ring-0 [&>svg]:opacity-0 hover:[&>svg]:opacity-100">
                               <StatusBadge status={project.status} />
                             </SelectTrigger>
-                            <SelectContent>
-                              {statusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-                            </SelectContent>
+                            <SelectContent>{statusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
                           </Select>
                         </td>
-                        <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
+                        {/* Priority - dropdown */}
+                        <td className="px-3 py-3">
                           <Select value={project.priority} onValueChange={v => { updateProject(project.id, { priority: v as ProjectPriority }); toast.success('Prioritet uppdaterad!'); }}>
-                            <SelectTrigger className="h-8 w-28 border-none bg-transparent p-0 shadow-none focus:ring-0 [&>svg]:opacity-0 hover:[&>svg]:opacity-100">
+                            <SelectTrigger className="h-8 w-full border-none bg-transparent p-0 px-1 shadow-none focus:ring-0 [&>svg]:opacity-0 hover:[&>svg]:opacity-100">
                               <PriorityBadge priority={project.priority} />
                             </SelectTrigger>
-                            <SelectContent>
-                              {priorityOptions.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
-                            </SelectContent>
+                            <SelectContent>{priorityOptions.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
                           </Select>
                         </td>
-                        <td className="px-5 py-3.5 text-sm">
-                          {editing ? (
-                            <Input value={editData.assignee || ''} onChange={e => setEditData({ ...editData, assignee: e.target.value })} className="h-8 text-sm" onClick={e => e.stopPropagation()} />
-                          ) : project.assignee}
+                        {/* Assignee - inline editable */}
+                        <td className="px-3 py-3">
+                          <Input
+                            value={project.assignee}
+                            onChange={e => updateProject(project.id, { assignee: e.target.value })}
+                            className="h-8 text-sm border-none bg-transparent p-0 shadow-none focus-visible:ring-1 focus-visible:bg-background hover:bg-muted/50 rounded-lg px-2"
+                          />
                         </td>
-                        <td className="px-5 py-3.5">
-                          {editing ? (
-                            <Input type="number" value={editData.budget || 0} onChange={e => setEditData({ ...editData, budget: Number(e.target.value) })} className="h-8 text-sm w-24" onClick={e => e.stopPropagation()} />
-                          ) : (
-                            <div className="space-y-1">
-                              <div className="flex justify-between text-xs">
-                                <span>{(project.spent / 1000).toFixed(0)}k</span>
-                                <span className="text-muted-foreground">{(project.budget / 1000).toFixed(0)}k kr</span>
-                              </div>
-                              <Progress value={pct} className={`h-1.5 ${pct > 90 ? '[&>div]:bg-red-500' : ''}`} />
+                        {/* Budget - inline editable with progress */}
+                        <td className="px-3 py-3">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1">
+                              <Input
+                                type="number"
+                                value={project.budget}
+                                onChange={e => updateProject(project.id, { budget: Number(e.target.value) })}
+                                className="h-7 text-xs w-20 border-none bg-transparent p-0 shadow-none focus-visible:ring-1 focus-visible:bg-background hover:bg-muted/50 rounded-lg px-2"
+                              />
+                              <span className="text-[10px] text-muted-foreground">kr</span>
                             </div>
-                          )}
+                            <Progress value={pct} className={`h-1.5 ${pct > 90 ? '[&>div]:bg-red-500' : ''}`} />
+                            <span className="text-[10px] text-muted-foreground">{(project.spent / 1000).toFixed(0)}k spenderat</span>
+                          </div>
                         </td>
-                        <td className="px-5 py-3.5 text-sm text-muted-foreground">
-                          {editing ? (
-                            <Input type="date" value={editData.deadline || ''} onChange={e => setEditData({ ...editData, deadline: e.target.value })} className="h-8 text-sm" onClick={e => e.stopPropagation()} />
-                          ) : project.deadline}
+                        {/* Deadline - inline editable */}
+                        <td className="px-3 py-3">
+                          <Input
+                            type="date"
+                            value={project.deadline}
+                            onChange={e => updateProject(project.id, { deadline: e.target.value })}
+                            className="h-8 text-sm border-none bg-transparent p-0 shadow-none focus-visible:ring-1 focus-visible:bg-background hover:bg-muted/50 rounded-lg px-1"
+                          />
                         </td>
-                        <td className="px-5 py-3.5">
-                          {editing ? (
-                            <div className="flex gap-1">
-                              <Button size="icon" variant="ghost" className="h-7 w-7 text-[hsl(var(--status-done))]" onClick={saveEdit}><Check className="h-4 w-4" /></Button>
-                              <Button size="icon" variant="ghost" className="h-7 w-7 text-[hsl(var(--status-stuck))]" onClick={cancelEdit}><X className="h-4 w-4" /></Button>
-                            </div>
-                          ) : (
-                            <div className="flex gap-1">
-                              <Button size="icon" variant="ghost" className="h-7 w-7 opacity-0 group-hover:opacity-100" onClick={(e) => startEdit(e, project)}>
-                                <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                        {/* Delete */}
+                        <td className="px-3 py-3">
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button size="icon" variant="ghost" className="h-7 w-7 opacity-0 group-hover:opacity-100" onClick={e => e.stopPropagation()}>
+                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
                               </Button>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button size="icon" variant="ghost" className="h-7 w-7 opacity-0 group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
-                                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Ta bort projekt?</AlertDialogTitle>
-                                    <AlertDialogDescription>Är du säker på att du vill ta bort {project.name}? Detta kan inte ångras.</AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Avbryt</AlertDialogCancel>
-                                    <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={(e) => deleteProject(e, project.id)}>Ta bort</AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </div>
-                          )}
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader><AlertDialogTitle>Ta bort projekt?</AlertDialogTitle><AlertDialogDescription>Ta bort {project.name}? Detta kan inte ångras.</AlertDialogDescription></AlertDialogHeader>
+                              <AlertDialogFooter><AlertDialogCancel>Avbryt</AlertDialogCancel><AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={(e) => handleDelete(e, project.id)}>Ta bort</AlertDialogAction></AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </td>
                       </motion.tr>
                     );
@@ -477,6 +352,6 @@ export default function Projects() {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
 }

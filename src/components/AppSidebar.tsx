@@ -1,4 +1,4 @@
-import { LayoutDashboard, FolderKanban, Clock, Zap, Settings, Users, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, Clock, Zap, Settings, Users, BarChart3, TrendingUp } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import {
@@ -18,6 +18,7 @@ const navItems = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
   { title: 'Projekt', url: '/projects', icon: FolderKanban },
   { title: 'Kontakter', url: '/contacts', icon: Users },
+  { title: 'Säljtavla', url: '/sales', icon: TrendingUp },
   { title: 'Google ADS', url: '/google-ads', icon: BarChart3 },
   { title: 'Tidloggning', url: '/time', icon: Clock },
   { title: 'Automationer', url: '/automations', icon: Zap },
