@@ -100,8 +100,8 @@ export function useGoogleAdsConfig() {
   const syncBudgets = async (dateFrom?: string, dateTo?: string) => {
     setSyncing(true);
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://cybxfemtgzonmhuiabeb.supabase.co";
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5YnhmZW10Z3pvbm1odWlhYmViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NzI5NjEsImV4cCI6MjA4OTM0ODk2MX0.93PI5FLPkhfMvwq1ADIwuzfsn92S6tngoQDaB4DOysA";
 
       const res = await fetch(`${supabaseUrl}/functions/v1/sync-google-ads`, {
         method: 'POST',

@@ -296,9 +296,9 @@ export default function Projects() {
                             </div>
                           </div>
 
-                          {/* Quick move buttons on hover */}
+                          {/* Quick move + delete buttons on hover */}
                           <div className="flex gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
-                            {statusOptions.filter(s => s.value !== project.status).slice(0, 3).map(s => (
+                            {statusOptions.filter(s => s.value !== project.status).slice(0, 2).map(s => (
                               <button
                                 key={s.value}
                                 onClick={() => moveProject(project.id, s.value)}
@@ -307,6 +307,23 @@ export default function Projects() {
                                 {s.label}
                               </button>
                             ))}
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <button className="text-[10px] py-1 px-2 rounded bg-destructive/10 hover:bg-destructive/20 text-destructive transition-colors flex items-center gap-0.5">
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Ta bort projekt?</AlertDialogTitle>
+                                  <AlertDialogDescription>Är du säker på att du vill ta bort {project.name}? Detta kan inte ångras.</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                                  <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={(e) => deleteProject(e, project.id)}>Ta bort</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </div>
                         </motion.div>
                       );
