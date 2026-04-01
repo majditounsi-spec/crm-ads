@@ -153,7 +153,7 @@ export default function TimeTracking() {
   };
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="space-y-6 max-w-7xl">
+    <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
       <motion.div variants={item} className="flex items-center justify-between flex-wrap gap-4">
         <div>

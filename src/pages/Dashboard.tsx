@@ -54,7 +54,7 @@ export default function Dashboard() {
   }, {});
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="space-y-6 max-w-7xl">
+    <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={item}>
         <h1 className="text-2xl font-heading font-bold">Dashboard</h1>
         <p className="text-muted-foreground">Välkommen tillbaka! Här är din översikt.</p>

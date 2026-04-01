@@ -78,7 +78,7 @@ export default function ProjectDetail() {
   };
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 max-w-5xl">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
       {/* Header */}
       <div className="flex items-start gap-4">
         <Button variant="ghost" size="icon" onClick={() => navigate('/projects')} className="mt-1 shrink-0"><ArrowLeft className="h-5 w-5" /></Button>

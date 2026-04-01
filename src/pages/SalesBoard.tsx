@@ -116,7 +116,7 @@ export default function SalesBoard() {
   const closedValue = deals.filter(d => d.stage === 'closed').reduce((s, d) => s + d.value, 0);
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="space-y-6 max-w-[1600px]">
+    <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={item} className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-heading font-bold">Säljtavla</h1>
