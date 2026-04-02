@@ -149,10 +149,11 @@ export function Layout() {
                   </PopoverContent>
                 </Popover>
               ) : (
-                <Button variant="outline" size="sm" className="rounded-xl gap-2 h-8"
-                  onClick={signInWithGoogle}>
+                <Link to="/login">
+                <Button variant="outline" size="sm" className="rounded-xl gap-2 h-8">
                   <LogIn className="h-3.5 w-3.5" /> Logga in
                 </Button>
+              </Link>
               )}
             </div>
           </header>

@@ -1,9 +1,10 @@
 import { useAuth } from '@/hooks/useAuth';
 import { useWhiteLabel } from '@/hooks/useWhiteLabel';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { motion } from 'framer-motion';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Mail, Lock, User } from 'lucide-react';
 import { useState } from 'react';
 
 function GoogleIcon({ className }: { className?: string }) {
@@ -18,17 +19,54 @@ function GoogleIcon({ className }: { className?: string }) {
 }
 
 export default function Login() {
-  const { signInWithGoogle } = useAuth();
+  const { signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth();
   const { config } = useWhiteLabel();
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   const handleGoogleLogin = async () => {
-    setIsLoading(true);
+    setIsGoogleLoading(true);
+    setError('');
     try {
       await signInWithGoogle();
     } catch {
-      setIsLoading(false);
+      setIsGoogleLoading(false);
+      setError('Kunde inte logga in med Google');
     }
+  };
+
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
+    setSuccess('');
+
+    if (mode === 'login') {
+      const result = await signInWithEmail(email, password);
+      if (result.error) {
+        setError(result.error === 'Invalid login credentials' ? 'Fel e-post eller lösenord' : result.error);
+      }
+    } else {
+      if (password.length < 6) {
+        setError('Lösenordet måste vara minst 6 tecken');
+        setIsLoading(false);
+        return;
+      }
+      const result = await signUpWithEmail(email, password, name);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setSuccess('Konto skapat! Kolla din e-post för att verifiera kontot.');
+        setMode('login');
+      }
+    }
+    setIsLoading(false);
   };
 
   return (
@@ -57,32 +95,122 @@ export default function Login() {
             </h1>
           </div>
 
-          <CardContent className="pt-8 pb-8 px-8 space-y-6">
+          <CardContent className="pt-6 pb-8 px-8 space-y-5">
             <div className="text-center">
-              <h2 className="font-heading font-semibold text-lg">Välkommen</h2>
+              <h2 className="font-heading font-semibold text-lg">
+                {mode === 'login' ? 'Välkommen tillbaka' : 'Skapa konto'}
+              </h2>
               <p className="text-sm text-muted-foreground mt-1">
-                Logga in för att komma åt {config.companyName}
+                {mode === 'login' ? 'Logga in för att fortsätta' : 'Fyll i dina uppgifter'}
               </p>
             </div>
 
+            {/* Google button */}
             <Button
               onClick={handleGoogleLogin}
-              disabled={isLoading}
+              disabled={isGoogleLoading}
               variant="outline"
-              className="w-full h-12 rounded-xl gap-3 text-sm font-medium hover:bg-muted/50 transition-all hover:shadow-md"
+              className="w-full h-11 rounded-xl gap-3 text-sm font-medium hover:bg-muted/50 transition-all hover:shadow-md"
             >
-              {isLoading ? (
+              {isGoogleLoading ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
                 <GoogleIcon className="h-5 w-5" />
               )}
-              Logga in med Google
+              Fortsätt med Google
             </Button>
 
-            <p className="text-[11px] text-center text-muted-foreground leading-relaxed">
-              Genom att logga in godkänner du våra villkor.
-              <br />
-              Ditt Google-konto används för säker autentisering.
+            {/* Divider */}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="bg-card px-3 text-muted-foreground">eller</span>
+              </div>
+            </div>
+
+            {/* Email/password form */}
+            <form onSubmit={handleEmailSubmit} className="space-y-3">
+              {mode === 'register' && (
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="Namn"
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    required
+                    className="pl-10 h-11 rounded-xl"
+                  />
+                </div>
+              )}
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="email"
+                  placeholder="E-postadress"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                  className="pl-10 h-11 rounded-xl"
+                />
+              </div>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="password"
+                  placeholder="Lösenord"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  className="pl-10 h-11 rounded-xl"
+                />
+              </div>
+
+              {error && (
+                <p className="text-sm text-destructive text-center bg-destructive/10 rounded-lg py-2 px-3">{error}</p>
+              )}
+              {success && (
+                <p className="text-sm text-emerald-600 text-center bg-emerald-50 rounded-lg py-2 px-3">{success}</p>
+              )}
+
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="w-full h-11 rounded-xl font-medium"
+              >
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : mode === 'login' ? (
+                  'Logga in'
+                ) : (
+                  'Skapa konto'
+                )}
+              </Button>
+            </form>
+
+            {/* Toggle mode */}
+            <p className="text-sm text-center text-muted-foreground">
+              {mode === 'login' ? (
+                <>Har du inget konto?{' '}
+                  <button
+                    onClick={() => { setMode('register'); setError(''); setSuccess(''); }}
+                    className="text-primary font-medium hover:underline"
+                  >
+                    Skapa konto
+                  </button>
+                </>
+              ) : (
+                <>Har du redan ett konto?{' '}
+                  <button
+                    onClick={() => { setMode('login'); setError(''); setSuccess(''); }}
+                    className="text-primary font-medium hover:underline"
+                  >
+                    Logga in
+                  </button>
+                </>
+              )}
             </p>
           </CardContent>
         </Card>
