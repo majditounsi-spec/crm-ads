@@ -3,6 +3,7 @@ import { HashRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { WhiteLabelProvider } from "@/hooks/useWhiteLabel";
 import { Layout } from "@/components/Layout";
 import Dashboard from "@/pages/Dashboard";
 import Projects from "@/pages/Projects";
@@ -14,33 +15,37 @@ import GoogleAds from "@/pages/GoogleAds";
 import SalesBoard from "@/pages/SalesBoard";
 import Integrations from "@/pages/Integrations";
 import ActivityLog from "@/pages/ActivityLog";
+import Settings from "@/pages/Settings";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <HashRouter>
-        <Routes>
-          <Route element={<Layout />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/projects" element={<Projects />} />
-            <Route path="/projects/:id" element={<ProjectDetail />} />
-            <Route path="/time" element={<TimeTracking />} />
-            <Route path="/automations" element={<Automations />} />
-            <Route path="/contacts" element={<Contacts />} />
-            <Route path="/google-ads" element={<GoogleAds />} />
-            <Route path="/sales" element={<SalesBoard />} />
-            <Route path="/integrations" element={<Integrations />} />
-            <Route path="/activity" element={<ActivityLog />} />
-          </Route>
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </HashRouter>
-    </TooltipProvider>
+    <WhiteLabelProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <HashRouter>
+          <Routes>
+            <Route element={<Layout />}>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/projects" element={<Projects />} />
+              <Route path="/projects/:id" element={<ProjectDetail />} />
+              <Route path="/time" element={<TimeTracking />} />
+              <Route path="/automations" element={<Automations />} />
+              <Route path="/contacts" element={<Contacts />} />
+              <Route path="/google-ads" element={<GoogleAds />} />
+              <Route path="/sales" element={<SalesBoard />} />
+              <Route path="/integrations" element={<Integrations />} />
+              <Route path="/activity" element={<ActivityLog />} />
+              <Route path="/settings" element={<Settings />} />
+            </Route>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </HashRouter>
+      </TooltipProvider>
+    </WhiteLabelProvider>
   </QueryClientProvider>
 );
 

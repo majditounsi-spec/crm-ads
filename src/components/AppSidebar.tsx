@@ -1,6 +1,6 @@
 import { LayoutDashboard, FolderKanban, Clock, Zap, Settings, Users, BarChart3, TrendingUp, Link2, Activity } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
-import { useLocation } from 'react-router-dom';
+import { useWhiteLabel } from '@/hooks/useWhiteLabel';
 import {
   Sidebar,
   SidebarContent,
@@ -29,18 +29,27 @@ const navItems = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
+  const { config } = useWhiteLabel();
 
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-violet-600 flex items-center justify-center shadow-md glow-primary">
-            <span className="text-white font-heading font-bold text-sm">M</span>
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-violet-600 flex items-center justify-center shadow-md glow-primary overflow-hidden">
+            {config.logoUrl ? (
+              <img src={config.logoUrl} alt="Logo" className="w-full h-full object-contain p-0.5" />
+            ) : (
+              <span className="text-white font-heading font-bold text-sm">
+                {config.companyName.charAt(0)}
+              </span>
+            )}
           </div>
           {!collapsed && (
             <div>
-              <span className="font-heading font-bold text-lg text-sidebar-accent-foreground tracking-tight">MarketFlow</span>
-              <p className="text-[10px] text-sidebar-muted -mt-0.5">CRM för Mediabyrå</p>
+              <span className="font-heading font-bold text-lg text-sidebar-accent-foreground tracking-tight">
+                {config.companyName}
+              </span>
+              <p className="text-[10px] text-sidebar-muted -mt-0.5">{config.subtitle}</p>
             </div>
           )}
         </div>

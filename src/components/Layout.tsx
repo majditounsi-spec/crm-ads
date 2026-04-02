@@ -3,6 +3,7 @@ import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Bell, Search, Command, Clock } from 'lucide-react';
+import { useWhiteLabel } from '@/hooks/useWhiteLabel';
 import { Input } from '@/components/ui/input';
 import {
   Popover, PopoverContent, PopoverTrigger,
@@ -27,6 +28,7 @@ function useSwedishClock() {
 export function Layout() {
   const location = useLocation();
   const { time, date } = useSwedishClock();
+  const { config } = useWhiteLabel();
   const [notifications] = useState([
     { id: 1, text: 'Nordic Food deadline om 2 dagar', time: '1h sedan', read: false },
     { id: 2, text: 'GreenEnergy projekt blockerat', time: '3h sedan', read: false },
@@ -93,7 +95,7 @@ export function Layout() {
 
               {/* User */}
               <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-violet-600 flex items-center justify-center cursor-pointer hover:shadow-md hover:scale-105 transition-all">
-                <span className="text-white text-sm font-medium">MT</span>
+                <span className="text-white text-sm font-medium">{config.userInitials}</span>
               </div>
             </div>
           </header>
