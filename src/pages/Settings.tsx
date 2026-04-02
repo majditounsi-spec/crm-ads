@@ -138,14 +138,14 @@ export default function Settings() {
                   <div className="flex flex-col items-center gap-2">
                     <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-violet-600 flex items-center justify-center shadow-lg overflow-hidden">
                       {config.logoUrl ? (
-                        <img src={config.logoUrl} alt="Logo" className="w-full h-full object-contain p-1" />
+                        <img src={config.logoUrl} alt="Logo" className="w-full h-full object-contain" />
                       ) : (
                         <span className="text-white font-heading font-bold text-2xl">
                           {config.companyName.charAt(0)}
                         </span>
                       )}
                     </div>
-                    <span className="text-[10px] text-muted-foreground">Förhandsgranskning</span>
+                    <span className="text-[10px] text-muted-foreground">Aktiv logotyp</span>
                   </div>
 
                   <div className="flex-1 space-y-3">
@@ -153,7 +153,7 @@ export default function Settings() {
                       onChange={handleLogoUpload} />
                     <Button variant="outline" className="w-full gap-2 rounded-xl"
                       onClick={() => logoInputRef.current?.click()}>
-                      <Upload className="h-4 w-4" /> Ladda upp logotyp
+                      <Upload className="h-4 w-4" /> Ladda upp egen logotyp
                     </Button>
                     {config.logoUrl && (
                       <Button variant="ghost" size="sm" className="w-full text-xs text-destructive"
@@ -162,8 +162,49 @@ export default function Settings() {
                       </Button>
                     )}
                     <p className="text-[11px] text-muted-foreground">
-                      SVG, PNG eller JPG. Max 500KB. Rekommenderat: 256x256px.
+                      SVG, PNG eller JPG. Max 500KB.
                     </p>
+                  </div>
+                </div>
+
+                {/* Logo Gallery */}
+                <div>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">Välj fördesignad logotyp</Label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { url: `${import.meta.env.BASE_URL}logos/flow.svg`, name: 'Flow', desc: 'Flödande M-linjer' },
+                      { url: `${import.meta.env.BASE_URL}logos/circles.svg`, name: 'Circles', desc: 'Överlappande cirklar' },
+                      { url: `${import.meta.env.BASE_URL}logos/arrow.svg`, name: 'Arrow', desc: 'Tillväxtpil' },
+                      { url: `${import.meta.env.BASE_URL}logos/minimal.svg`, name: 'Minimal', desc: 'Tunn linje + accent' },
+                      { url: `${import.meta.env.BASE_URL}logos/shield.svg`, name: 'Shield', desc: 'Sköld-emblem' },
+                      { url: '', name: 'Bokstav', desc: 'Ingen logga (initial)' },
+                    ].map(logo => {
+                      const isActive = config.logoUrl === logo.url;
+                      return (
+                        <motion.div key={logo.name}
+                          whileHover={{ scale: 1.04 }}
+                          whileTap={{ scale: 0.97 }}
+                          className={`border rounded-xl p-2 cursor-pointer transition-all text-center ${
+                            isActive ? 'ring-2 ring-primary border-primary shadow-md bg-primary/5' : 'hover:border-primary/40 hover:shadow-sm'
+                          }`}
+                          onClick={() => updateConfig({ logoUrl: logo.url })}>
+                          <div className="w-14 h-14 mx-auto rounded-xl bg-gradient-to-br from-primary to-violet-600 flex items-center justify-center overflow-hidden shadow-sm mb-1.5">
+                            {logo.url ? (
+                              <img src={logo.url} alt={logo.name} className="w-full h-full object-contain" />
+                            ) : (
+                              <span className="text-white font-heading font-bold text-lg">
+                                {config.companyName.charAt(0)}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs font-medium">{logo.name}</p>
+                          <p className="text-[10px] text-muted-foreground">{logo.desc}</p>
+                          {isActive && (
+                            <Badge className="mt-1 text-[9px] h-4 bg-primary/10 text-primary border-primary/20">Aktiv</Badge>
+                          )}
+                        </motion.div>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -175,7 +216,7 @@ export default function Settings() {
                   }}>
                     <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-violet-600 flex items-center justify-center shadow-md overflow-hidden">
                       {config.logoUrl ? (
-                        <img src={config.logoUrl} alt="Logo" className="w-full h-full object-contain p-0.5" />
+                        <img src={config.logoUrl} alt="Logo" className="w-full h-full object-contain" />
                       ) : (
                         <span className="text-white font-heading font-bold text-sm">
                           {config.companyName.charAt(0)}
