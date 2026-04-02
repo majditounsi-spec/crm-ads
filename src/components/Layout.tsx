@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
-import { Outlet, useLocation } from 'react-router-dom';
-import { Bell, Search, Command, Clock } from 'lucide-react';
+import { Outlet, useLocation, Navigate } from 'react-router-dom';
+import { Bell, Search, Command, Clock, LogOut, Settings, User, Shield } from 'lucide-react';
 import { useWhiteLabel } from '@/hooks/useWhiteLabel';
+import { useAuth } from '@/hooks/useAuth';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from '@/components/ui/popover';
+import { Link } from 'react-router-dom';
 
 function useSwedishClock() {
   const [time, setTime] = useState('');
@@ -29,12 +32,32 @@ export function Layout() {
   const location = useLocation();
   const { time, date } = useSwedishClock();
   const { config } = useWhiteLabel();
+  const { user, loading, signOut } = useAuth();
   const [notifications] = useState([
     { id: 1, text: 'Nordic Food deadline om 2 dagar', time: '1h sedan', read: false },
     { id: 2, text: 'GreenEnergy projekt blockerat', time: '3h sedan', read: false },
     { id: 3, text: 'Budget varning: TechStart AB 62%', time: '5h sedan', read: true },
   ]);
   const unread = notifications.filter(n => !n.read).length;
+
+  // Show loading while auth initializes
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-violet-600 flex items-center justify-center shadow-md animate-pulse">
+            <span className="text-white font-heading font-bold text-sm">{config.companyName.charAt(0)}</span>
+          </div>
+          <p className="text-sm text-muted-foreground">Laddar...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Redirect to login if not authenticated
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
     <SidebarProvider>
@@ -63,7 +86,6 @@ export function Layout() {
                 <span className="text-xs capitalize">{date}</span>
               </div>
 
-              {/* Divider */}
               <div className="hidden md:block w-px h-5 bg-border" />
 
               {/* Notifications */}
@@ -93,10 +115,59 @@ export function Layout() {
                 </PopoverContent>
               </Popover>
 
-              {/* User */}
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-violet-600 flex items-center justify-center cursor-pointer hover:shadow-md hover:scale-105 transition-all">
-                <span className="text-white text-sm font-medium">{config.userInitials}</span>
-              </div>
+              {/* User Profile Dropdown */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="flex items-center gap-2 hover:bg-muted/50 rounded-xl px-2 py-1 transition-colors">
+                    <div className="w-8 h-8 rounded-xl overflow-hidden shrink-0">
+                      {user.avatarUrl ? (
+                        <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-primary to-violet-600 flex items-center justify-center">
+                          <span className="text-white text-sm font-medium">{user.initials}</span>
+                        </div>
+                      )}
+                    </div>
+                    <span className="hidden lg:block text-sm font-medium max-w-[100px] truncate">{user.name.split(' ')[0]}</span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-64 p-0 rounded-xl overflow-hidden">
+                  {/* User info */}
+                  <div className="p-4 border-b bg-muted/20">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0">
+                        {user.avatarUrl ? (
+                          <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-primary to-violet-600 flex items-center justify-center">
+                            <span className="text-white text-sm font-bold">{user.initials}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-sm truncate">{user.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Menu */}
+                  <div className="p-1.5">
+                    <Link to="/users"
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm hover:bg-muted/50 transition-colors">
+                      <Shield className="h-4 w-4 text-muted-foreground" /> Användare & Team
+                    </Link>
+                    <Link to="/settings"
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm hover:bg-muted/50 transition-colors">
+                      <Settings className="h-4 w-4 text-muted-foreground" /> Inställningar
+                    </Link>
+                    <div className="border-t my-1" />
+                    <button onClick={signOut}
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm hover:bg-destructive/10 text-destructive transition-colors w-full text-left">
+                      <LogOut className="h-4 w-4" /> Logga ut
+                    </button>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           </header>
           <main className="flex-1 overflow-auto p-6">
