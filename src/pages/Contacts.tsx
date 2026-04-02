@@ -405,8 +405,8 @@ export default function Contacts() {
       </div>
 
       {/* Table */}
-      <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
+      <Card className="overflow-x-auto">
+        <div className="min-w-max">
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-muted/30 border-b">
