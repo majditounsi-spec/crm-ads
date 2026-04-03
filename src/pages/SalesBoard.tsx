@@ -78,12 +78,12 @@ export default function SalesBoard() {
   const signedValue = gaDeals.filter(d => d.status === 'signed').reduce((s, d) => s + d.value, 0);
   const pendingValue = gaDeals.filter(d => ['sent', 'viewed'].includes(d.status)).reduce((s, d) => s + d.value, 0);
 
-  const handleCreateInvoice = (deal: GetAcceptDeal) => {
+  const handleCreateInvoice = async (deal: GetAcceptDeal) => {
     if (isAlreadyInvoiced(deal.id)) {
       toast.error('Denna affär har redan fakturerats');
       return;
     }
-    const inv = createInvoiceFromDeal(deal);
+    const inv = await createInvoiceFromDeal(deal);
     toast.success(`Faktura ${inv.invoiceNumber} skapad för ${deal.company}`);
   };
 

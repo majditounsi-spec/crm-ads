@@ -9,12 +9,19 @@ import {
   SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, useSidebar,
 } from '@/components/ui/sidebar';
 
-const navItems = [
+interface NavItem {
+  title: string;
+  url: string;
+  icon: any;
+  visibilityKey?: string;
+}
+
+const allNavItems: NavItem[] = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
   { title: 'Projekt', url: '/projects', icon: FolderKanban },
   { title: 'Kontakter', url: '/contacts', icon: Users },
   { title: 'Säljtavla', url: '/sales', icon: TrendingUp },
-  { title: 'Google ADS', url: '/google-ads', icon: BarChart3 },
+  { title: 'Google ADS', url: '/google-ads', icon: BarChart3, visibilityKey: 'showGoogleAds' },
   { title: 'Tidloggning', url: '/time', icon: Clock },
   { title: 'Automationer', url: '/automations', icon: Zap },
   { title: 'Integrationer', url: '/integrations', icon: Link2 },
@@ -25,6 +32,11 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const { config } = useWhiteLabel();
+
+  const navItems = allNavItems.filter(item => {
+    if (!item.visibilityKey) return true;
+    return (config as any)[item.visibilityKey] !== false;
+  });
 
   return (
     <Sidebar collapsible="icon">

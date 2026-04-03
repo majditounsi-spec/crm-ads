@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Globe, Target, TrendingUp, Camera, Mail, MessageSquare, FileText, Phone,
   CreditCard, Cloud, Link2, CheckCircle2, XCircle, Settings, ExternalLink,
@@ -10,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useGetAccept } from '@/hooks/useGetAccept';
+import { useFortnox } from '@/hooks/useFortnox';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
@@ -226,13 +229,31 @@ const statusLabels: Record<string, { label: string; className: string }> = {
 };
 
 export default function Integrations() {
+  const navigate = useNavigate();
+  const { config: gaConfig } = useGetAccept();
+  const { config: fnConfig } = useFortnox();
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
 
-  const connected = integrations.filter(i => i.status === 'connected').length;
+  // Dynamic status based on actual connection state
+  const getStatus = (id: string): Integration['status'] => {
+    if (id === 'google-ads') return 'connected'; // Always connected via Google Ads page
+    if (id === 'fortnox') return fnConfig.connected ? 'connected' : 'available';
+    if (id === 'gmail') return 'available'; // Not yet implemented
+    const staticIntegration = integrations.find(i => i.id === id);
+    return staticIntegration?.status || 'available';
+  };
 
-  const filtered = integrations.filter(i => {
+  // Override statuses dynamically
+  const dynamicIntegrations = integrations.map(i => ({
+    ...i,
+    status: getStatus(i.id),
+  }));
+
+  const connected = dynamicIntegrations.filter(i => i.status === 'connected').length;
+
+  const filtered = dynamicIntegrations.filter(i => {
     const matchSearch = !search || i.name.toLowerCase().includes(search.toLowerCase()) || i.description.toLowerCase().includes(search.toLowerCase());
     const matchCategory = filterCategory === 'all' || i.category === filterCategory;
     const matchStatus = filterStatus === 'all' || i.status === filterStatus;
@@ -242,10 +263,50 @@ export default function Integrations() {
   const handleConnect = (integration: Integration) => {
     if (integration.status === 'coming_soon') {
       toast.info(`${integration.name} kommer snart!`);
-    } else if (integration.status === 'connected') {
-      toast.info(`${integration.name} är redan ansluten`);
-    } else {
-      toast.success(`Ansluter till ${integration.name}...`);
+      return;
+    }
+
+    // Route to actual setup pages
+    switch (integration.id) {
+      case 'google-ads':
+        navigate('/google-ads');
+        break;
+      case 'fortnox':
+        navigate('/sales');
+        toast.info('Gå till fliken "Kopplingar" för att ansluta Fortnox');
+        break;
+      case 'meta-ads':
+      case 'mailchimp':
+      case 'google-analytics':
+      case 'semrush':
+      case 'slack':
+      case 'gmail':
+      case 'telavox':
+      case 'google-drive':
+      case 'scrive':
+      case 'frame-io':
+      case 'stripe':
+        toast.info(`${integration.name} – integration kommer snart. Kontakta oss för tidig åtkomst.`);
+        break;
+      case 'zapier':
+      case 'make':
+        toast.info(`${integration.name} – webhook-stöd kommer i nästa version.`);
+        break;
+      default:
+        toast.info(`${integration.name} är inte tillgänglig ännu.`);
+    }
+  };
+
+  const handleSettings = (integration: Integration) => {
+    switch (integration.id) {
+      case 'google-ads':
+        navigate('/google-ads');
+        break;
+      case 'fortnox':
+        navigate('/sales');
+        break;
+      default:
+        toast.info(`Inställningar för ${integration.name}`);
     }
   };
 
@@ -351,7 +412,7 @@ export default function Integrations() {
                               <span className="flex items-center gap-1 text-xs text-emerald-600">
                                 <CheckCircle2 className="h-3 w-3" /> Aktiv
                               </span>
-                              <Button variant="ghost" size="sm" className="h-7 text-xs gap-1">
+                              <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => handleSettings(integration)}>
                                 <Settings className="h-3 w-3" /> Inställningar
                               </Button>
                             </>
