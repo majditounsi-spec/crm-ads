@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#6C3AED"/>
+      <stop offset="100%" stop-color="#4F46E5"/>
+    </linearGradient>
+    <linearGradient id="arrow" x1="300" y1="300" x2="420" y2="100" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#A78BFA"/>
+      <stop offset="100%" stop-color="#F472B6"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
+  <!-- M base -->
+  <rect x="100" y="155" width="44" height="220" rx="22" fill="white"/>
+  <path d="M122 185 L248 325 C253 331 261 331 266 325 L330 250" stroke="white" stroke-width="44" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Right leg becomes upward arrow -->
+  <rect x="368" y="155" width="44" height="220" rx="22" fill="white"/>
+  <!-- Growth arrow shooting up from right -->
+  <path d="M390 155 L390 95" stroke="url(#arrow)" stroke-width="44" stroke-linecap="round" fill="none"/>
+  <path d="M355 125 L390 80 L425 125" stroke="url(#arrow)" stroke-width="30" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>
