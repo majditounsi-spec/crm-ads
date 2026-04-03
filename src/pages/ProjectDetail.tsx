@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, Clock, User, ListTodo, CalendarDays, Trash2 } from 'lucide-react';
 import { mockTimeEntries, mockTasks } from '@/data/mockData';
@@ -17,8 +17,36 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { toast } from 'sonner';
+
+function loadTasks(projectId: string): Task[] {
+  try {
+    const stored = localStorage.getItem(`marketflow_tasks_${projectId}`);
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return mockTasks.filter(t => t.projectId === projectId);
+}
+
+function saveTasks(projectId: string, tasks: Task[]) {
+  try {
+    localStorage.setItem(`marketflow_tasks_${projectId}`, JSON.stringify(tasks));
+  } catch {}
+}
+
+function loadTimeEntries(projectId: string): TimeEntry[] {
+  try {
+    const stored = localStorage.getItem(`marketflow_time_${projectId}`);
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return mockTimeEntries.filter(t => t.projectId === projectId);
+}
+
+function saveTimeEntries(projectId: string, entries: TimeEntry[]) {
+  try {
+    localStorage.setItem(`marketflow_time_${projectId}`, JSON.stringify(entries));
+  } catch {}
+}
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -26,11 +54,27 @@ export default function ProjectDetail() {
   const { getProject, updateProject, deleteProject } = useProjects();
   const project = getProject(id || '');
 
-  const [tasks, setTasks] = useState<Task[]>(mockTasks.filter(t => t.projectId === id));
-  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>(mockTimeEntries.filter(t => t.projectId === id));
+  const [tasks, setTasksState] = useState<Task[]>(() => loadTasks(id || ''));
+  const [timeEntries, setTimeEntriesState] = useState<TimeEntry[]>(() => loadTimeEntries(id || ''));
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [timeDialogOpen, setTimeDialogOpen] = useState(false);
   const [newTime, setNewTime] = useState({ description: '', hours: '', date: new Date().toISOString().split('T')[0] });
+
+  const setTasks = useCallback((updater: Task[] | ((prev: Task[]) => Task[])) => {
+    setTasksState(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      saveTasks(id || '', next);
+      return next;
+    });
+  }, [id]);
+
+  const setTimeEntries = useCallback((updater: TimeEntry[] | ((prev: TimeEntry[]) => TimeEntry[])) => {
+    setTimeEntriesState(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      saveTimeEntries(id || '', next);
+      return next;
+    });
+  }, [id]);
 
   if (!project) {
     return (
@@ -54,25 +98,55 @@ export default function ProjectDetail() {
 
   const handleAddTask = () => {
     if (!newTaskTitle.trim()) return;
-    setTasks([...tasks, { id: String(Date.now()), projectId: project.id, title: newTaskTitle.trim(), completed: false, assignee: project.assignee, createdAt: new Date().toISOString().split('T')[0] }]);
+    setTasks(prev => [...prev, {
+      id: String(Date.now()),
+      projectId: project.id,
+      title: newTaskTitle.trim(),
+      completed: false,
+      assignee: project.assignee,
+      createdAt: new Date().toISOString().split('T')[0],
+    }]);
     setNewTaskTitle('');
     toast.success('Uppgift tillagd!');
   };
 
   const toggleTask = (taskId: string) => {
-    setTasks(tasks.map(t => t.id === taskId ? { ...t, completed: !t.completed } : t));
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, completed: !t.completed } : t));
+  };
+
+  const deleteTask = (taskId: string) => {
+    setTasks(prev => prev.filter(t => t.id !== taskId));
+    toast.success('Uppgift borttagen');
   };
 
   const handleLogTime = () => {
     if (!newTime.description || !newTime.hours) { toast.error('Fyll i beskrivning och timmar'); return; }
-    setTimeEntries([{ id: String(Date.now()), projectId: project.id, projectName: project.name, description: newTime.description, hours: Number(newTime.hours), date: newTime.date, assignee: project.assignee }, ...timeEntries]);
+    setTimeEntries(prev => [{
+      id: String(Date.now()),
+      projectId: project.id,
+      projectName: project.name,
+      description: newTime.description,
+      hours: Number(newTime.hours),
+      date: newTime.date,
+      assignee: project.assignee,
+    }, ...prev]);
     setTimeDialogOpen(false);
     setNewTime({ description: '', hours: '', date: new Date().toISOString().split('T')[0] });
     toast.success('Tid registrerad!');
   };
 
+  const deleteTimeEntry = (entryId: string) => {
+    setTimeEntries(prev => prev.filter(e => e.id !== entryId));
+    toast.success('Tidspost borttagen');
+  };
+
   const handleDeleteProject = () => {
     deleteProject(project.id);
+    // Clean up localStorage for this project
+    try {
+      localStorage.removeItem(`marketflow_tasks_${project.id}`);
+      localStorage.removeItem(`marketflow_time_${project.id}`);
+    } catch {}
     navigate('/projects');
     toast.success('Projekt borttaget!');
   };
@@ -84,28 +158,10 @@ export default function ProjectDetail() {
         <Button variant="ghost" size="icon" onClick={() => navigate('/projects')} className="mt-1 shrink-0"><ArrowLeft className="h-5 w-5" /></Button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
-            <Input
-              value={project.name}
-              onChange={e => updateProject(project.id, { name: e.target.value })}
-              className="text-2xl font-heading font-bold border-none bg-transparent p-0 shadow-none focus-visible:ring-1 focus-visible:bg-background hover:bg-muted/50 rounded-xl px-3 -mx-3 h-auto"
-            />
+            <h1 className="text-2xl font-heading font-bold">{project.name}</h1>
             <PriorityBadge priority={project.priority} />
           </div>
-          <div className="flex items-center gap-2 mt-1">
-            <Input
-              value={project.client}
-              onChange={e => updateProject(project.id, { client: e.target.value })}
-              className="text-sm text-muted-foreground border-none bg-transparent p-0 shadow-none focus-visible:ring-1 focus-visible:bg-background hover:bg-muted/50 rounded-lg px-2 -mx-2 h-7 w-40"
-              placeholder="Kund"
-            />
-            <span className="text-muted-foreground">·</span>
-            <Input
-              value={project.assignee}
-              onChange={e => updateProject(project.id, { assignee: e.target.value })}
-              className="text-sm text-muted-foreground border-none bg-transparent p-0 shadow-none focus-visible:ring-1 focus-visible:bg-background hover:bg-muted/50 rounded-lg px-2 h-7 w-32"
-              placeholder="Ansvarig"
-            />
-          </div>
+          <p className="text-sm text-muted-foreground mt-1">{project.client} · {project.assignee}</p>
         </div>
         <AlertDialog>
           <AlertDialogTrigger asChild>
@@ -145,15 +201,9 @@ export default function ProjectDetail() {
         </motion.div>
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="bg-card rounded-xl border shadow-sm p-4">
           <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Budget</p>
-          <div className="flex justify-between text-sm">
-            <Input type="number" value={project.budget} onChange={e => updateProject(project.id, { budget: Number(e.target.value) })} className="h-7 w-20 text-sm font-heading font-bold border-none bg-transparent p-0 shadow-none focus-visible:ring-1 focus-visible:bg-background hover:bg-muted/50 rounded-lg px-2" />
-            <span className="text-muted-foreground text-xs mt-1">kr</span>
-          </div>
+          <p className="text-2xl font-heading font-bold">{(project.spent / 1000).toFixed(0)}k / {(project.budget / 1000).toFixed(0)}k kr</p>
           <Progress value={budgetPct} className={`h-1.5 mt-2 ${budgetPct > 90 ? '[&>div]:bg-red-500' : ''}`} />
-          <div className="flex items-center gap-1 mt-1">
-            <span className="text-[10px] text-muted-foreground">Deadline:</span>
-            <Input type="date" value={project.deadline} onChange={e => updateProject(project.id, { deadline: e.target.value })} className="h-6 text-[10px] border-none bg-transparent p-0 shadow-none focus-visible:ring-1 w-28 px-1" />
-          </div>
+          <p className="text-xs text-muted-foreground mt-1">Deadline: {project.deadline}</p>
         </motion.div>
       </div>
 
@@ -165,10 +215,13 @@ export default function ProjectDetail() {
         </div>
         <div className="divide-y">
           {tasks.map(task => (
-            <div key={task.id} className="px-5 py-3 flex items-center gap-3 monday-row">
+            <div key={task.id} className="px-5 py-3 flex items-center gap-3 monday-row group">
               <Checkbox checked={task.completed} onCheckedChange={() => toggleTask(task.id)} />
               <span className={`flex-1 text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
               <span className="text-xs text-muted-foreground flex items-center gap-1"><User className="h-3 w-3" />{task.assignee}</span>
+              <button onClick={() => deleteTask(task.id)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/10">
+                <Trash2 className="h-3 w-3 text-destructive" />
+              </button>
             </div>
           ))}
         </div>
@@ -201,12 +254,17 @@ export default function ProjectDetail() {
           {timeEntries.length === 0 ? (
             <div className="px-5 py-8 text-center text-sm text-muted-foreground">Ingen tid loggad ännu</div>
           ) : timeEntries.map(entry => (
-            <div key={entry.id} className="px-5 py-3.5 flex items-center justify-between monday-row">
+            <div key={entry.id} className="px-5 py-3.5 flex items-center justify-between monday-row group">
               <div>
                 <p className="text-sm font-medium">{entry.description}</p>
                 <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5"><CalendarDays className="h-3 w-3" />{new Date(entry.date + 'T12:00:00').toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' })}</p>
               </div>
-              <span className="font-heading font-bold text-sm bg-primary/10 text-primary px-2 py-0.5 rounded-md">{entry.hours}h</span>
+              <div className="flex items-center gap-2">
+                <span className="font-heading font-bold text-sm bg-primary/10 text-primary px-2 py-0.5 rounded-md">{entry.hours}h</span>
+                <button onClick={() => deleteTimeEntry(entry.id)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/10">
+                  <Trash2 className="h-3 w-3 text-destructive" />
+                </button>
+              </div>
             </div>
           ))}
         </div>

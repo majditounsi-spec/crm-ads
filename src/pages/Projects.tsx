@@ -411,17 +411,27 @@ export default function Projects() {
           /* ========== TABLE VIEW ========== */
           <motion.div key="table" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="bg-card rounded-xl border shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full table-fixed min-w-[900px]">
+                <colgroup>
+                  <col className="w-[22%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[4%]" />
+                </colgroup>
                 <thead>
                   <tr className="border-b bg-muted/30">
-                    <th className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-4 py-2.5 min-w-[200px]">Projekt</th>
-                    <th className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2.5 min-w-[140px]">Kund</th>
-                    <th className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2.5 w-[120px]">Status</th>
-                    <th className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2.5 w-[100px]">Prioritet</th>
-                    <th className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2.5 min-w-[120px]">Ansvarig</th>
-                    <th className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2.5 w-[150px]">Budget</th>
-                    <th className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2.5 w-[110px]">Deadline</th>
-                    <th className="w-[40px]"></th>
+                    <th className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-4 py-2.5">Projekt</th>
+                    <th className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2.5">Kund</th>
+                    <th className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2.5">Status</th>
+                    <th className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2.5">Prioritet</th>
+                    <th className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2.5">Ansvarig</th>
+                    <th className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2.5">Budget</th>
+                    <th className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2.5">Deadline</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -429,21 +439,18 @@ export default function Projects() {
                     const pct = project.budget > 0 ? Math.round((project.spent / project.budget) * 100) : 0;
                     return (
                       <motion.tr key={project.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }} className="monday-row group">
-                        <td className="px-4 py-2.5">
-                          <div className="cursor-pointer" onClick={() => navigate(`/projects/${project.id}`)}>
-                            <Input value={project.name} onChange={e => { e.stopPropagation(); updateProject(project.id, { name: e.target.value }); }}
-                              onClick={e => e.stopPropagation()}
-                              className="h-7 text-sm font-medium border-none bg-transparent p-0 shadow-none focus-visible:ring-1 focus-visible:bg-background hover:bg-muted/50 rounded-md px-2 -mx-2" />
+                        <td className="px-4 py-2.5 overflow-hidden">
+                          <div className="cursor-pointer truncate" onClick={() => navigate(`/projects/${project.id}`)}>
+                            <span className="text-sm font-medium hover:text-primary transition-colors">{project.name}</span>
                             {project.tags.length > 0 && (
-                              <div className="flex gap-1 mt-1 px-2 -mx-2">
+                              <div className="flex gap-1 mt-1 flex-wrap">
                                 {project.tags.map(tag => <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground">{tag}</span>)}
                               </div>
                             )}
                           </div>
                         </td>
-                        <td className="px-3 py-2.5">
-                          <Input value={project.client} onChange={e => updateProject(project.id, { client: e.target.value })}
-                            className="h-7 text-sm border-none bg-transparent p-0 shadow-none focus-visible:ring-1 focus-visible:bg-background hover:bg-muted/50 rounded-md px-2" />
+                        <td className="px-3 py-2.5 overflow-hidden">
+                          <span className="text-sm truncate block">{project.client}</span>
                         </td>
                         <td className="px-3 py-2.5">
                           <Select value={project.status} onValueChange={v => { updateProject(project.id, { status: v as ProjectStatus }); toast.success('Status uppdaterad'); }}>
@@ -461,23 +468,18 @@ export default function Projects() {
                             <SelectContent>{priorityOptions.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
                           </Select>
                         </td>
-                        <td className="px-3 py-2.5">
-                          <Input value={project.assignee} onChange={e => updateProject(project.id, { assignee: e.target.value })}
-                            className="h-7 text-sm border-none bg-transparent p-0 shadow-none focus-visible:ring-1 focus-visible:bg-background hover:bg-muted/50 rounded-md px-2" />
+                        <td className="px-3 py-2.5 overflow-hidden">
+                          <span className="text-sm truncate block">{project.assignee}</span>
                         </td>
                         <td className="px-3 py-2.5">
                           <div className="space-y-1">
-                            <div className="flex items-center gap-1">
-                              <Input type="number" value={project.budget} onChange={e => updateProject(project.id, { budget: Number(e.target.value) })}
-                                className="h-6 text-xs w-20 border-none bg-transparent p-0 shadow-none focus-visible:ring-1 focus-visible:bg-background hover:bg-muted/50 rounded-md px-2" />
-                              <span className="text-[10px] text-muted-foreground">kr</span>
-                            </div>
+                            <div className="text-xs font-medium">{(project.spent / 1000).toFixed(0)}k / {(project.budget / 1000).toFixed(0)}k kr</div>
                             <Progress value={pct} className={`h-1 ${pct > 90 ? '[&>div]:bg-red-500' : ''}`} />
+                            <div className="text-[10px] text-muted-foreground">{pct}% använt</div>
                           </div>
                         </td>
                         <td className="px-3 py-2.5">
-                          <Input type="date" value={project.deadline} onChange={e => updateProject(project.id, { deadline: e.target.value })}
-                            className="h-7 text-xs border-none bg-transparent p-0 shadow-none focus-visible:ring-1 focus-visible:bg-background hover:bg-muted/50 rounded-md px-1" />
+                          <span className="text-xs">{project.deadline}</span>
                         </td>
                         <td className="px-2 py-2.5">
                           <AlertDialog>
