@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface FortnoxInvoice {
   id: string;
@@ -32,6 +33,62 @@ interface FortnoxConfig {
   companyName: string;
 }
 
+interface DbInvoice {
+  id: string;
+  invoice_number: string;
+  customer_name: string;
+  customer_email: string;
+  amount: number;
+  vat: number;
+  total_amount: number;
+  status: string;
+  due_date: string;
+  created_at: string;
+  paid_at: string | null;
+  description: string;
+  source_type: string;
+  source_id: string | null;
+  items: InvoiceItem[];
+}
+
+function dbToInvoice(row: DbInvoice): FortnoxInvoice {
+  return {
+    id: row.id,
+    invoiceNumber: row.invoice_number,
+    customerName: row.customer_name,
+    customerEmail: row.customer_email,
+    amount: Number(row.amount),
+    vat: Number(row.vat),
+    totalAmount: Number(row.total_amount),
+    status: row.status as FortnoxInvoice['status'],
+    dueDate: row.due_date,
+    createdAt: row.created_at?.split('T')[0] || '',
+    paidAt: row.paid_at || undefined,
+    description: row.description,
+    sourceType: row.source_type as FortnoxInvoice['sourceType'],
+    sourceId: row.source_id || undefined,
+    items: Array.isArray(row.items) ? row.items : [],
+  };
+}
+
+function invoiceToDb(inv: Omit<FortnoxInvoice, 'id'>) {
+  return {
+    invoice_number: inv.invoiceNumber,
+    customer_name: inv.customerName,
+    customer_email: inv.customerEmail,
+    amount: inv.amount,
+    vat: inv.vat,
+    total_amount: inv.totalAmount,
+    status: inv.status,
+    due_date: inv.dueDate,
+    paid_at: inv.paidAt || null,
+    description: inv.description,
+    source_type: inv.sourceType,
+    source_id: inv.sourceId || null,
+    items: JSON.stringify(inv.items),
+  };
+}
+
 const STORAGE_KEY = 'marketflow_fortnox_invoices';
 const CONFIG_KEY = 'marketflow_fortnox_config';
 
@@ -55,16 +112,21 @@ const sampleInvoices: FortnoxInvoice[] = [
   },
 ];
 
-function loadInvoices(): FortnoxInvoice[] {
+function saveLocal(invoices: FortnoxInvoice[]) {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) return JSON.parse(stored);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(invoices));
   } catch {}
-  return sampleInvoices;
 }
 
-function saveInvoices(invoices: FortnoxInvoice[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(invoices));
+function loadLocal(): FortnoxInvoice[] | null {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  return null;
 }
 
 function loadConfig(): FortnoxConfig {
@@ -76,7 +138,9 @@ function loadConfig(): FortnoxConfig {
 }
 
 function saveConfig(config: FortnoxConfig) {
-  localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+  try {
+    localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+  } catch {}
 }
 
 function getNextInvoiceNumber(invoices: FortnoxInvoice[]): string {
@@ -93,13 +157,50 @@ function getNextInvoiceNumber(invoices: FortnoxInvoice[]): string {
 }
 
 export function useFortnox() {
-  const [invoices, setInvoicesState] = useState<FortnoxInvoice[]>(loadInvoices);
+  const [invoices, setInvoicesState] = useState<FortnoxInvoice[]>([]);
   const [config, setConfigState] = useState<FortnoxConfig>(loadConfig);
+  const [loading, setLoading] = useState(true);
+
+  const fetchInvoices = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('invoices' as any)
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && data && data.length > 0) {
+        const mapped = (data as unknown as DbInvoice[]).map(dbToInvoice);
+        setInvoicesState(mapped);
+        saveLocal(mapped);
+      } else {
+        const local = loadLocal();
+        if (local && local.length > 0) {
+          setInvoicesState(local);
+        } else {
+          setInvoicesState(sampleInvoices);
+          saveLocal(sampleInvoices);
+        }
+      }
+    } catch {
+      const local = loadLocal();
+      if (local && local.length > 0) {
+        setInvoicesState(local);
+      } else {
+        setInvoicesState(sampleInvoices);
+        saveLocal(sampleInvoices);
+      }
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    fetchInvoices();
+  }, [fetchInvoices]);
 
   const setInvoices = useCallback((updater: FortnoxInvoice[] | ((prev: FortnoxInvoice[]) => FortnoxInvoice[])) => {
     setInvoicesState(prev => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
-      saveInvoices(next);
+      saveLocal(next);
       return next;
     });
   }, []);
@@ -108,8 +209,8 @@ export function useFortnox() {
     const newConfig = { clientId, clientSecret, connected: true, companyName };
     setConfigState(newConfig);
     saveConfig(newConfig);
-    setInvoices(sampleInvoices);
-  }, [setInvoices]);
+    fetchInvoices();
+  }, [fetchInvoices]);
 
   const disconnect = useCallback(() => {
     const newConfig = { clientId: '', clientSecret: '', connected: false, companyName: '' };
@@ -117,11 +218,11 @@ export function useFortnox() {
     saveConfig(newConfig);
   }, []);
 
-  const createInvoiceFromDeal = useCallback((deal: {
+  const createInvoiceFromDeal = useCallback(async (deal: {
     id: string; name: string; company: string; value: number;
     recipientEmail: string; recipientName: string; tags: string[];
   }) => {
-    const currentInvoices = loadInvoices();
+    const currentInvoices = loadLocal() || invoices;
     const invoiceNumber = getNextInvoiceNumber(currentInvoices);
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 30);
@@ -143,15 +244,28 @@ export function useFortnox() {
       items: [{ description: deal.name, quantity: 1, unitPrice: deal.value, total: deal.value }],
     };
 
+    // Try Supabase first
+    const { data, error } = await supabase
+      .from('invoices' as any)
+      .insert(invoiceToDb(newInvoice) as any)
+      .select()
+      .single();
+
+    if (!error && data) {
+      const dbInvoice = dbToInvoice(data as unknown as DbInvoice);
+      setInvoices(prev => [dbInvoice, ...prev]);
+      return dbInvoice;
+    }
+    // Fallback to local
     setInvoices(prev => [newInvoice, ...prev]);
     return newInvoice;
-  }, [setInvoices]);
+  }, [invoices, setInvoices]);
 
-  const createManualInvoice = useCallback((data: {
+  const createManualInvoice = useCallback(async (data: {
     customerName: string; customerEmail: string; description: string;
     items: InvoiceItem[];
   }) => {
-    const currentInvoices = loadInvoices();
+    const currentInvoices = loadLocal() || invoices;
     const invoiceNumber = getNextInvoiceNumber(currentInvoices);
     const amount = data.items.reduce((s, i) => s + i.total, 0);
     const dueDate = new Date();
@@ -173,18 +287,46 @@ export function useFortnox() {
       items: data.items,
     };
 
+    const { data: dbData, error } = await supabase
+      .from('invoices' as any)
+      .insert(invoiceToDb(newInvoice) as any)
+      .select()
+      .single();
+
+    if (!error && dbData) {
+      const dbInvoice = dbToInvoice(dbData as unknown as DbInvoice);
+      setInvoices(prev => [dbInvoice, ...prev]);
+      return dbInvoice;
+    }
     setInvoices(prev => [newInvoice, ...prev]);
     return newInvoice;
-  }, [setInvoices]);
+  }, [invoices, setInvoices]);
 
-  const updateInvoiceStatus = useCallback((id: string, status: FortnoxInvoice['status']) => {
+  const updateInvoiceStatus = useCallback(async (id: string, status: FortnoxInvoice['status']) => {
+    const paidAt = status === 'paid' ? new Date().toISOString().split('T')[0] : undefined;
+
     setInvoices(prev => prev.map(inv =>
-      inv.id === id ? { ...inv, status, ...(status === 'paid' ? { paidAt: new Date().toISOString().split('T')[0] } : {}) } : inv
+      inv.id === id ? { ...inv, status, ...(paidAt ? { paidAt } : {}) } : inv
     ));
+
+    const dbUpdates: Record<string, any> = { status };
+    if (paidAt) dbUpdates.paid_at = paidAt;
+
+    const { error } = await supabase
+      .from('invoices' as any)
+      .update(dbUpdates as any)
+      .eq('id', id);
+    if (error) console.error('Supabase invoice update failed:', error.message);
   }, [setInvoices]);
 
-  const deleteInvoice = useCallback((id: string) => {
+  const deleteInvoice = useCallback(async (id: string) => {
     setInvoices(prev => prev.filter(inv => inv.id !== id));
+
+    const { error } = await supabase
+      .from('invoices' as any)
+      .delete()
+      .eq('id', id);
+    if (error) console.error('Supabase invoice delete failed:', error.message);
   }, [setInvoices]);
 
   const isAlreadyInvoiced = useCallback((sourceId: string) => {
@@ -196,8 +338,8 @@ export function useFortnox() {
   const totalOverdue = invoices.filter(i => i.status === 'overdue').reduce((s, i) => s + i.totalAmount, 0);
 
   return {
-    invoices, config, connect, disconnect,
+    invoices, loading, config, connect, disconnect,
     createInvoiceFromDeal, createManualInvoice, updateInvoiceStatus, deleteInvoice,
-    isAlreadyInvoiced, totalRevenue, totalOutstanding, totalOverdue,
+    isAlreadyInvoiced, totalRevenue, totalOutstanding, totalOverdue, refetch: fetchInvoices,
   };
 }
