@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Filter, Trash2, LayoutGrid, List, Calendar, Users, GripVertical, Clock } from 'lucide-react';
+import { Plus, Filter, Trash2, LayoutGrid, List, Calendar, Users, GripVertical, Clock, Columns3, Eye, EyeOff, ArrowUp, ArrowDown } from 'lucide-react';
 import { StatusBadge } from '@/components/StatusBadge';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { useProjects } from '@/hooks/useProjects';
@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Project, ProjectStatus, ProjectPriority } from '@/types/crm';
 import { toast } from 'sonner';
 import {
@@ -65,6 +66,101 @@ const statusLabels: Record<ProjectStatus, string> = {
 };
 
 type ViewMode = 'table' | 'kanban' | 'timeline';
+
+/* ===== Column Configuration ===== */
+type ColumnKey = 'name' | 'client' | 'status' | 'priority' | 'assignee' | 'budget' | 'deadline' | 'tags' | 'spent';
+
+interface ColumnDef {
+  key: ColumnKey;
+  label: string;
+  width: string;
+}
+
+const allColumns: ColumnDef[] = [
+  { key: 'name', label: 'Projekt', width: '20%' },
+  { key: 'client', label: 'Kund', width: '13%' },
+  { key: 'status', label: 'Status', width: '11%' },
+  { key: 'priority', label: 'Prioritet', width: '10%' },
+  { key: 'assignee', label: 'Ansvarig', width: '12%' },
+  { key: 'budget', label: 'Budget', width: '13%' },
+  { key: 'spent', label: 'Spenderat', width: '10%' },
+  { key: 'deadline', label: 'Deadline', width: '11%' },
+  { key: 'tags', label: 'Taggar', width: '12%' },
+];
+
+const defaultColumnOrder: ColumnKey[] = ['name', 'client', 'status', 'priority', 'assignee', 'budget', 'deadline'];
+const COLUMN_STORAGE_KEY = 'marketflow_project_columns';
+
+function loadColumnConfig(): ColumnKey[] {
+  try {
+    const stored = localStorage.getItem(COLUMN_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  return defaultColumnOrder;
+}
+
+function saveColumnConfig(columns: ColumnKey[]) {
+  try {
+    localStorage.setItem(COLUMN_STORAGE_KEY, JSON.stringify(columns));
+  } catch {}
+}
+
+function renderCell(project: Project, col: ColumnKey, navigate: (path: string) => void, updateProject: (id: string, updates: Partial<Project>) => void) {
+  const pct = project.budget > 0 ? Math.round((project.spent / project.budget) * 100) : 0;
+  switch (col) {
+    case 'name':
+      return (
+        <div className="cursor-pointer truncate" onClick={() => navigate(`/projects/${project.id}`)}>
+          <span className="text-sm font-medium hover:text-primary transition-colors">{project.name}</span>
+        </div>
+      );
+    case 'client':
+      return <span className="text-sm truncate block">{project.client}</span>;
+    case 'status':
+      return (
+        <Select value={project.status} onValueChange={v => { updateProject(project.id, { status: v as ProjectStatus }); toast.success('Status uppdaterad'); }}>
+          <SelectTrigger className="h-7 w-full border-none bg-transparent p-0 px-1 shadow-none focus:ring-0 [&>svg]:opacity-0 hover:[&>svg]:opacity-100">
+            <StatusBadge status={project.status} />
+          </SelectTrigger>
+          <SelectContent>{statusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
+        </Select>
+      );
+    case 'priority':
+      return (
+        <Select value={project.priority} onValueChange={v => { updateProject(project.id, { priority: v as ProjectPriority }); toast.success('Prioritet uppdaterad'); }}>
+          <SelectTrigger className="h-7 w-full border-none bg-transparent p-0 px-1 shadow-none focus:ring-0 [&>svg]:opacity-0 hover:[&>svg]:opacity-100">
+            <PriorityBadge priority={project.priority} />
+          </SelectTrigger>
+          <SelectContent>{priorityOptions.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
+        </Select>
+      );
+    case 'assignee':
+      return <span className="text-sm truncate block">{project.assignee}</span>;
+    case 'budget':
+      return (
+        <div className="space-y-1">
+          <div className="text-xs font-medium">{(project.spent / 1000).toFixed(0)}k / {(project.budget / 1000).toFixed(0)}k kr</div>
+          <Progress value={pct} className={`h-1 ${pct > 90 ? '[&>div]:bg-red-500' : ''}`} />
+          <div className="text-[10px] text-muted-foreground">{pct}% använt</div>
+        </div>
+      );
+    case 'spent':
+      return <span className="text-xs font-medium">{project.spent.toLocaleString('sv-SE')} kr</span>;
+    case 'deadline':
+      return <span className="text-xs">{project.deadline}</span>;
+    case 'tags':
+      return project.tags.length > 0 ? (
+        <div className="flex gap-1 flex-wrap">
+          {project.tags.map(tag => <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground">{tag}</span>)}
+        </div>
+      ) : <span className="text-xs text-muted-foreground">—</span>;
+    default:
+      return null;
+  }
+}
 
 /* ===== Sortable Kanban Card ===== */
 function SortableCard({ project, navigate, onDelete }: { project: Project; navigate: (path: string) => void; onDelete: (id: string) => void }) {
@@ -169,6 +265,29 @@ export default function Projects() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [newProject, setNewProject] = useState({ name: '', client: '', status: 'pending' as ProjectStatus, priority: 'medium' as ProjectPriority, deadline: '', budget: '', assignee: '' });
+  const [visibleColumns, setVisibleColumns] = useState<ColumnKey[]>(loadColumnConfig);
+
+  const moveColumn = useCallback((key: ColumnKey, direction: 'up' | 'down') => {
+    setVisibleColumns(prev => {
+      const idx = prev.indexOf(key);
+      if (idx < 0) return prev;
+      const newIdx = direction === 'up' ? idx - 1 : idx + 1;
+      if (newIdx < 0 || newIdx >= prev.length) return prev;
+      const next = [...prev];
+      [next[idx], next[newIdx]] = [next[newIdx], next[idx]];
+      saveColumnConfig(next);
+      return next;
+    });
+  }, []);
+
+  const toggleColumn = useCallback((key: ColumnKey) => {
+    setVisibleColumns(prev => {
+      const next = prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key];
+      if (next.length === 0) return prev; // Don't allow empty
+      saveColumnConfig(next);
+      return next;
+    });
+  }, []);
 
   const filtered = filter === 'all' ? projects : projects.filter(p => p.status === filter);
   const activeProject = activeId ? projects.find(p => p.id === activeId) : null;
@@ -276,6 +395,47 @@ export default function Projects() {
           <p className="text-sm text-muted-foreground">{projects.length} projekt · {activeCount} aktiva · {(totalBudget / 1000).toFixed(0)}k kr budget</p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Column settings */}
+          {viewMode === 'table' && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 rounded-lg gap-1.5 text-xs">
+                  <Columns3 className="h-3.5 w-3.5" /> Kolumner
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-3" align="end">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Visa & ordna kolumner</p>
+                <div className="space-y-1">
+                  {allColumns.map(col => {
+                    const isVisible = visibleColumns.includes(col.key);
+                    const idx = visibleColumns.indexOf(col.key);
+                    return (
+                      <div key={col.key} className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors ${isVisible ? 'bg-muted/50' : 'opacity-50'}`}>
+                        <button onClick={() => toggleColumn(col.key)} className="shrink-0">
+                          {isVisible ? <Eye className="h-3.5 w-3.5 text-primary" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
+                        </button>
+                        <span className="flex-1 text-xs font-medium">{col.label}</span>
+                        {isVisible && (
+                          <div className="flex gap-0.5">
+                            <button onClick={() => moveColumn(col.key, 'up')} disabled={idx === 0} className="p-0.5 rounded hover:bg-muted disabled:opacity-20">
+                              <ArrowUp className="h-3 w-3" />
+                            </button>
+                            <button onClick={() => moveColumn(col.key, 'down')} disabled={idx === visibleColumns.length - 1} className="p-0.5 rounded hover:bg-muted disabled:opacity-20">
+                              <ArrowDown className="h-3 w-3" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <Button variant="ghost" size="sm" className="w-full mt-2 text-xs h-7" onClick={() => { setVisibleColumns(defaultColumnOrder); saveColumnConfig(defaultColumnOrder); }}>
+                  Återställ standard
+                </Button>
+              </PopoverContent>
+            </Popover>
+          )}
+
           {/* View toggle */}
           <div className="flex rounded-lg border bg-muted/40 p-0.5 gap-0.5">
             {([
@@ -411,92 +571,50 @@ export default function Projects() {
           /* ========== TABLE VIEW ========== */
           <motion.div key="table" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="bg-card rounded-xl border shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full table-fixed min-w-[900px]">
+              <table className="w-full table-fixed min-w-[700px]">
                 <colgroup>
-                  <col className="w-[22%]" />
-                  <col className="w-[14%]" />
-                  <col className="w-[12%]" />
-                  <col className="w-[10%]" />
-                  <col className="w-[12%]" />
-                  <col className="w-[14%]" />
-                  <col className="w-[12%]" />
-                  <col className="w-[4%]" />
+                  {visibleColumns.map(key => {
+                    const col = allColumns.find(c => c.key === key);
+                    return <col key={key} style={{ width: col?.width || '12%' }} />;
+                  })}
+                  <col style={{ width: '4%' }} />
                 </colgroup>
                 <thead>
                   <tr className="border-b bg-muted/30">
-                    <th className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-4 py-2.5">Projekt</th>
-                    <th className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2.5">Kund</th>
-                    <th className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2.5">Status</th>
-                    <th className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2.5">Prioritet</th>
-                    <th className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2.5">Ansvarig</th>
-                    <th className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2.5">Budget</th>
-                    <th className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2.5">Deadline</th>
+                    {visibleColumns.map(key => {
+                      const col = allColumns.find(c => c.key === key)!;
+                      return (
+                        <th key={key} className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2.5">
+                          {col.label}
+                        </th>
+                      );
+                    })}
                     <th></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {filtered.map((project, i) => {
-                    const pct = project.budget > 0 ? Math.round((project.spent / project.budget) * 100) : 0;
-                    return (
-                      <motion.tr key={project.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }} className="monday-row group">
-                        <td className="px-4 py-2.5 overflow-hidden">
-                          <div className="cursor-pointer truncate" onClick={() => navigate(`/projects/${project.id}`)}>
-                            <span className="text-sm font-medium hover:text-primary transition-colors">{project.name}</span>
-                            {project.tags.length > 0 && (
-                              <div className="flex gap-1 mt-1 flex-wrap">
-                                {project.tags.map(tag => <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground">{tag}</span>)}
-                              </div>
-                            )}
-                          </div>
+                  {filtered.map((project, i) => (
+                    <motion.tr key={project.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }} className="monday-row group">
+                      {visibleColumns.map(key => (
+                        <td key={key} className="px-3 py-2.5 overflow-hidden">
+                          {renderCell(project, key, navigate, updateProject)}
                         </td>
-                        <td className="px-3 py-2.5 overflow-hidden">
-                          <span className="text-sm truncate block">{project.client}</span>
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <Select value={project.status} onValueChange={v => { updateProject(project.id, { status: v as ProjectStatus }); toast.success('Status uppdaterad'); }}>
-                            <SelectTrigger className="h-7 w-full border-none bg-transparent p-0 px-1 shadow-none focus:ring-0 [&>svg]:opacity-0 hover:[&>svg]:opacity-100">
-                              <StatusBadge status={project.status} />
-                            </SelectTrigger>
-                            <SelectContent>{statusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
-                          </Select>
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <Select value={project.priority} onValueChange={v => { updateProject(project.id, { priority: v as ProjectPriority }); toast.success('Prioritet uppdaterad'); }}>
-                            <SelectTrigger className="h-7 w-full border-none bg-transparent p-0 px-1 shadow-none focus:ring-0 [&>svg]:opacity-0 hover:[&>svg]:opacity-100">
-                              <PriorityBadge priority={project.priority} />
-                            </SelectTrigger>
-                            <SelectContent>{priorityOptions.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
-                          </Select>
-                        </td>
-                        <td className="px-3 py-2.5 overflow-hidden">
-                          <span className="text-sm truncate block">{project.assignee}</span>
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <div className="space-y-1">
-                            <div className="text-xs font-medium">{(project.spent / 1000).toFixed(0)}k / {(project.budget / 1000).toFixed(0)}k kr</div>
-                            <Progress value={pct} className={`h-1 ${pct > 90 ? '[&>div]:bg-red-500' : ''}`} />
-                            <div className="text-[10px] text-muted-foreground">{pct}% använt</div>
-                          </div>
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <span className="text-xs">{project.deadline}</span>
-                        </td>
-                        <td className="px-2 py-2.5">
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100">
-                                <Trash2 className="h-3 w-3 text-destructive" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader><AlertDialogTitle>Ta bort projekt?</AlertDialogTitle><AlertDialogDescription>Ta bort {project.name}?</AlertDialogDescription></AlertDialogHeader>
-                              <AlertDialogFooter><AlertDialogCancel>Avbryt</AlertDialogCancel><AlertDialogAction className="bg-destructive text-destructive-foreground" onClick={() => handleDelete(project.id)}>Ta bort</AlertDialogAction></AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </td>
-                      </motion.tr>
-                    );
-                  })}
+                      ))}
+                      <td className="px-2 py-2.5">
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100">
+                              <Trash2 className="h-3 w-3 text-destructive" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader><AlertDialogTitle>Ta bort projekt?</AlertDialogTitle><AlertDialogDescription>Ta bort {project.name}?</AlertDialogDescription></AlertDialogHeader>
+                            <AlertDialogFooter><AlertDialogCancel>Avbryt</AlertDialogCancel><AlertDialogAction className="bg-destructive text-destructive-foreground" onClick={() => handleDelete(project.id)}>Ta bort</AlertDialogAction></AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </td>
+                    </motion.tr>
+                  ))}
                 </tbody>
               </table>
             </div>
