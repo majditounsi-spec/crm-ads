@@ -177,7 +177,7 @@ export default function TimeTracking() {
                 </Select>
               </div>
               <div><Label>Beskrivning</Label><Input value={newEntry.description} onChange={e => setNewEntry({...newEntry, description: e.target.value})} placeholder="Vad jobbade du med?" /></div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><Label>Timmar</Label><Input type="number" step="0.5" value={newEntry.hours} onChange={e => setNewEntry({...newEntry, hours: e.target.value})} placeholder="0" /></div>
                 <div><Label>Datum</Label><Input type="date" value={newEntry.date} onChange={e => setNewEntry({...newEntry, date: e.target.value})} /></div>
               </div>

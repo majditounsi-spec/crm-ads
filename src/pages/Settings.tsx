@@ -170,7 +170,7 @@ export default function Settings() {
                 {/* Logo Gallery */}
                 <div>
                   <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">Välj fördesignad logotyp</Label>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {[
                       { url: `${import.meta.env.BASE_URL}logos/flow.svg`, name: 'Flow', desc: 'Flödande M-linjer' },
                       { url: `${import.meta.env.BASE_URL}logos/circles.svg`, name: 'Circles', desc: 'Överlappande cirklar' },
@@ -348,7 +348,7 @@ export default function Settings() {
 
                   <div>
                     <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Sidebar-stil</Label>
-                    <div className="grid grid-cols-3 gap-2 mt-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
                       {[
                         { value: 'dark' as const, label: 'Mörk', icon: Moon },
                         { value: 'light' as const, label: 'Ljus', icon: Sun },

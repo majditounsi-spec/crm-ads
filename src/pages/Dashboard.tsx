@@ -160,7 +160,7 @@ export default function Dashboard() {
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">{stat.title}</p>
-                    <p className="text-2xl font-heading font-bold mt-1">
+                    <p className="text-lg sm:text-2xl font-heading font-bold mt-1">
                       <AnimatedNumber value={stat.value} suffix={stat.suffix || ''} />
                     </p>
                     <div className="flex items-center gap-1 mt-1.5">
@@ -242,7 +242,7 @@ export default function Dashboard() {
                 ))}
               </div>
               {/* Pipeline breakdown */}
-              <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t">
+              <div className="grid grid-cols-3 gap-2 sm:gap-3 mt-4 pt-4 border-t">
                 <div className="text-center">
                   <p className="text-lg font-heading font-bold text-emerald-600">{(pipelineValue.confirmed / 1000).toFixed(0)}k</p>
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Bekräftat</p>
@@ -303,7 +303,7 @@ export default function Dashboard() {
       <motion.div variants={item}>
         <Card>
           <CardContent className="py-4">
-            <div className="flex items-center gap-6 flex-wrap">
+            <div className="flex items-center gap-3 sm:gap-6 flex-wrap">
               <span className="text-sm font-medium text-muted-foreground">Projektstatus:</span>
               {[
                 { status: 'working', label: 'Pågår', color: 'bg-[hsl(var(--status-working))]' },

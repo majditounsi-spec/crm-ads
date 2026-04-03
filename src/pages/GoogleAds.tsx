@@ -217,7 +217,7 @@ export default function GoogleAds() {
                   <div><label className="text-sm font-medium">Daglig budget (kr)</label><Input type="number" placeholder="0" value={addBudget} onChange={(e) => setAddBudget(e.target.value)} /></div>
                   <div><label className="text-sm font-medium">Daglig spend (kr)</label><Input type="number" placeholder="0" value={addSpend} onChange={(e) => setAddSpend(e.target.value)} /></div>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div><label className="text-sm font-medium">Visningar</label><Input type="number" placeholder="0" value={addImpressions} onChange={(e) => setAddImpressions(e.target.value)} /></div>
                   <div><label className="text-sm font-medium">Klick</label><Input type="number" placeholder="0" value={addClicks} onChange={(e) => setAddClicks(e.target.value)} /></div>
                   <div><label className="text-sm font-medium">Konverteringar</label><Input type="number" placeholder="0" value={addConversions} onChange={(e) => setAddConversions(e.target.value)} /></div>
@@ -264,7 +264,7 @@ export default function GoogleAds() {
       {showSettings && <motion.div variants={item}><GoogleAdsSettings /></motion.div>}
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
         {[
           { title: 'ADS-kunder', value: String(adsContacts.length), icon: Users, color: 'from-violet-500/10 to-violet-500/5', iconColor: 'text-violet-500 bg-violet-500/10' },
           { title: 'Månadsbudget', value: `${(totalMonthlyBudget / 1000).toFixed(0)}k kr`, icon: DollarSign, color: 'from-blue-500/10 to-blue-500/5', iconColor: 'text-blue-500 bg-blue-500/10' },

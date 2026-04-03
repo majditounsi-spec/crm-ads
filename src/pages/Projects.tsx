@@ -129,7 +129,7 @@ function SortableCard({ project, navigate, onDelete }: { project: Project; navig
 function DroppableColumn({ status, children, count }: { status: ProjectStatus; children: React.ReactNode; count: number }) {
   const { setNodeRef, isOver } = useDroppable({ id: `column-${status}` });
   return (
-    <div ref={setNodeRef} className="min-w-[280px] w-[280px] shrink-0">
+    <div ref={setNodeRef} className="min-w-[250px] w-[250px] sm:min-w-[280px] sm:w-[280px] shrink-0">
       <div className="flex items-center gap-2 mb-3 px-1">
         <div className={`w-2.5 h-2.5 rounded-full ${statusDotColors[status]}`} />
         <span className="font-heading font-semibold text-sm">{statusLabels[status]}</span>

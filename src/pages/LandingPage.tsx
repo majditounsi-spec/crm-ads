@@ -44,7 +44,7 @@ function Hero() {
           <motion.div variants={fadeUp} className="inline-flex items-center gap-2 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-full px-4 py-1.5 text-sm font-medium mb-6">
             <Sparkles className="h-4 w-4" /> Nytt: AI-driven prognostisering
           </motion.div>
-          <motion.h1 variants={fadeUp} className="text-5xl md:text-7xl font-bold tracking-tight leading-[1.05]">
+          <motion.h1 variants={fadeUp} className="text-3xl sm:text-5xl md:text-7xl font-bold tracking-tight leading-[1.05]">
             CRM byggt för<br />
             <span className="bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">mediebyråer</span>
           </motion.h1>
@@ -72,7 +72,7 @@ function Hero() {
             <span className="text-[11px] text-muted-foreground ml-2">MarketFlow — Dashboard</span>
           </div>
           <div className="p-6 bg-gradient-to-br from-background to-muted/30">
-            <div className="grid grid-cols-4 gap-3 mb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
               {[
                 { label: 'Aktiva kunder', value: '47', color: 'text-blue-500' },
                 { label: 'Pågående projekt', value: '23', color: 'text-emerald-500' },
@@ -85,7 +85,7 @@ function Hero() {
                 </div>
               ))}
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="col-span-2 bg-card rounded-xl border p-4 h-32">
                 <p className="text-xs font-medium mb-2">Intäktsprognos</p>
                 <div className="flex items-end gap-1 h-16">
@@ -130,7 +130,7 @@ function Features() {
       <div className="max-w-6xl mx-auto">
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-100px' }} variants={stagger} className="text-center mb-16">
           <motion.p variants={fadeUp} className="text-sm font-semibold text-blue-500 uppercase tracking-wider">Funktioner</motion.p>
-          <motion.h2 variants={fadeUp} className="text-3xl md:text-5xl font-bold tracking-tight mt-3">Allt din byrå behöver</motion.h2>
+          <motion.h2 variants={fadeUp} className="text-2xl sm:text-3xl md:text-5xl font-bold tracking-tight mt-3">Allt din byrå behöver</motion.h2>
           <motion.p variants={fadeUp} className="text-muted-foreground mt-4 max-w-xl mx-auto">Från kundhantering till kampanjoptimering — ett system istället för tio.</motion.p>
         </motion.div>
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-50px' }} variants={stagger} className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -177,7 +177,7 @@ function Pricing() {
       <div className="max-w-6xl mx-auto">
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="text-center mb-12">
           <motion.p variants={fadeUp} className="text-sm font-semibold text-blue-500 uppercase tracking-wider">Priser</motion.p>
-          <motion.h2 variants={fadeUp} className="text-3xl md:text-5xl font-bold tracking-tight mt-3">Enkla, transparenta priser</motion.h2>
+          <motion.h2 variants={fadeUp} className="text-2xl sm:text-3xl md:text-5xl font-bold tracking-tight mt-3">Enkla, transparenta priser</motion.h2>
           <motion.p variants={fadeUp} className="text-muted-foreground mt-4">Välj månads- eller årsbetalning. Spara upp till 20% med årsplan.</motion.p>
           <motion.div variants={fadeUp} className="mt-6 inline-flex items-center bg-card border rounded-full p-1 gap-1">
             <button onClick={() => setYearly(false)}
@@ -246,7 +246,7 @@ function Testimonials() {
       <div className="max-w-6xl mx-auto">
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="text-center mb-12">
           <motion.p variants={fadeUp} className="text-sm font-semibold text-blue-500 uppercase tracking-wider">Omdömen</motion.p>
-          <motion.h2 variants={fadeUp} className="text-3xl md:text-5xl font-bold tracking-tight mt-3">Älskad av svenska byråer</motion.h2>
+          <motion.h2 variants={fadeUp} className="text-2xl sm:text-3xl md:text-5xl font-bold tracking-tight mt-3">Älskad av svenska byråer</motion.h2>
         </motion.div>
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="grid md:grid-cols-2 gap-5">
           {testimonials.map(t => (
@@ -290,7 +290,7 @@ function FAQ() {
       <div className="max-w-3xl mx-auto">
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="text-center mb-12">
           <motion.p variants={fadeUp} className="text-sm font-semibold text-blue-500 uppercase tracking-wider">FAQ</motion.p>
-          <motion.h2 variants={fadeUp} className="text-3xl md:text-5xl font-bold tracking-tight mt-3">Vanliga frågor</motion.h2>
+          <motion.h2 variants={fadeUp} className="text-2xl sm:text-3xl md:text-5xl font-bold tracking-tight mt-3">Vanliga frågor</motion.h2>
         </motion.div>
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="space-y-3">
           {faqs.map((faq, i) => (

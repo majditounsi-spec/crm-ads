@@ -197,7 +197,7 @@ export default function SalesBoard() {
             const stageDeals = filteredDeals.filter(d => d.stage === stage.key);
             const stageValue = stageDeals.reduce((s, d) => s + d.value, 0);
             return (
-              <div key={stage.key} className="min-w-[300px] w-[300px] shrink-0">
+              <div key={stage.key} className="min-w-[260px] w-[260px] sm:min-w-[300px] sm:w-[300px] shrink-0">
                 <div className="flex items-center justify-between mb-3 px-1">
                   <div className="flex items-center gap-2">
                     <div className={`w-3 h-3 rounded-sm ${stage.color}`} />

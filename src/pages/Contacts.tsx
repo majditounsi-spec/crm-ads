@@ -484,7 +484,7 @@ export default function Contacts() {
 
           {editingContact && (
             <div className="grid gap-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-sm font-medium text-foreground">Kundnamn</label>
                   <Input value={editingContact.name}
@@ -497,7 +497,7 @@ export default function Contacts() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="text-sm font-medium text-foreground">Tjänst</label>
                   <InlineServiceSelect value={editingContact.service}
@@ -515,7 +515,7 @@ export default function Contacts() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-sm font-medium text-foreground">Kontaktperson</label>
                   <Input value={editingContact.contactPerson}
@@ -530,7 +530,7 @@ export default function Contacts() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-sm font-medium text-foreground flex items-center gap-1.5">
                     <Phone className="h-3.5 w-3.5" /> Telefonnummer
@@ -567,7 +567,7 @@ export default function Contacts() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="text-sm font-medium text-foreground">Status</label>
                   <Select value={editingContact.status}
@@ -653,7 +653,7 @@ export default function Contacts() {
               <label className="text-sm font-medium text-foreground">Kundnamn *</label>
               <Input value={newContact.name} onChange={(e) => setNewContact({ ...newContact, name: e.target.value })} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-sm font-medium text-foreground">Webbplats</label>
                 <Input value={newContact.website} onChange={(e) => setNewContact({ ...newContact, website: e.target.value })} placeholder="https://" />
@@ -663,7 +663,7 @@ export default function Contacts() {
                 <Input value={newContact.platform} onChange={(e) => setNewContact({ ...newContact, platform: e.target.value })} placeholder="Wordpress" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-sm font-medium text-foreground">Tjänst</label>
                 <InlineServiceSelect value={newContact.service} onChange={(v) => setNewContact({ ...newContact, service: v })} />
@@ -673,7 +673,7 @@ export default function Contacts() {
                 <Input type="number" value={newContact.budget} onChange={(e) => setNewContact({ ...newContact, budget: Number(e.target.value) })} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-sm font-medium text-foreground">Kontaktperson</label>
                 <Input value={newContact.contactPerson} onChange={(e) => setNewContact({ ...newContact, contactPerson: e.target.value })} />
@@ -683,7 +683,7 @@ export default function Contacts() {
                 <Input value={newContact.seller} onChange={(e) => setNewContact({ ...newContact, seller: e.target.value })} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-sm font-medium text-foreground flex items-center gap-1.5">
                   <Phone className="h-3.5 w-3.5" /> Telefonnummer
@@ -717,7 +717,7 @@ export default function Contacts() {
                 </Button>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-sm font-medium text-foreground">Startdatum</label>
                 <Input type="date" value={newContact.startDate} onChange={(e) => setNewContact({ ...newContact, startDate: e.target.value })} />

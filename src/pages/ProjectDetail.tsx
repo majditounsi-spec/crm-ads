@@ -188,7 +188,7 @@ export default function ProjectDetail() {
               <DialogHeader><DialogTitle className="font-heading">Logga tid – {project.name}</DialogTitle></DialogHeader>
               <div className="space-y-4 pt-2">
                 <div><Label>Beskrivning</Label><Input value={newTime.description} onChange={e => setNewTime({...newTime, description: e.target.value})} placeholder="Vad jobbade du med?" /></div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div><Label>Timmar</Label><Input type="number" step="0.5" value={newTime.hours} onChange={e => setNewTime({...newTime, hours: e.target.value})} placeholder="0" /></div>
                   <div><Label>Datum</Label><Input type="date" value={newTime.date} onChange={e => setNewTime({...newTime, date: e.target.value})} /></div>
                 </div>
