@@ -38,13 +38,21 @@ const sampleDeals: GetAcceptDeal[] = [
 function loadDeals(): GetAcceptDeal[] {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) return JSON.parse(stored);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
   } catch {}
+  saveDeals(sampleDeals);
   return sampleDeals;
 }
 
 function saveDeals(deals: GetAcceptDeal[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(deals));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(deals));
+  } catch (e) {
+    console.error('Failed to save deals:', e);
+  }
 }
 
 function loadConfig(): GetAcceptConfig {
@@ -56,7 +64,11 @@ function loadConfig(): GetAcceptConfig {
 }
 
 function saveConfig(config: GetAcceptConfig) {
-  localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+  try {
+    localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+  } catch (e) {
+    console.error('Failed to save GetAccept config:', e);
+  }
 }
 
 export function useGetAccept() {

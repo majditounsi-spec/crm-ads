@@ -4,6 +4,8 @@ import { Contact, ContactStatus } from '@/types/crm';
 import { mockContacts } from '@/data/contactData';
 import { toast } from 'sonner';
 
+const STORAGE_KEY = 'marketflow_contacts';
+
 interface DbContact {
   id: string;
   name: string;
@@ -73,6 +75,20 @@ function contactToDb(c: Omit<Contact, 'id'>) {
   };
 }
 
+function saveLocal(contacts: Contact[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(contacts));
+  } catch {}
+}
+
+function loadLocal(): Contact[] | null {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return null;
+}
+
 export function useContacts() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,26 +100,27 @@ export function useContacts() {
         .select('*')
         .order('created_at', { ascending: true });
 
-      if (error || !data || data.length === 0) {
-        // Fallback to local mock data if Supabase table doesn't exist or is empty
-        const stored = localStorage.getItem('marketflow_contacts');
-        if (stored) {
-          setContacts(JSON.parse(stored));
+      if (!error && data && data.length > 0) {
+        const mapped = (data as unknown as DbContact[]).map(dbToContact);
+        setContacts(mapped);
+        saveLocal(mapped);
+      } else {
+        // Supabase empty or errored - use localStorage fallback
+        const local = loadLocal();
+        if (local && local.length > 0) {
+          setContacts(local);
         } else {
           setContacts(mockContacts);
-          localStorage.setItem('marketflow_contacts', JSON.stringify(mockContacts));
+          saveLocal(mockContacts);
         }
-      } else {
-        setContacts((data as unknown as DbContact[]).map(dbToContact));
       }
     } catch {
-      // Network/connection error - use local data
-      const stored = localStorage.getItem('marketflow_contacts');
-      if (stored) {
-        setContacts(JSON.parse(stored));
+      const local = loadLocal();
+      if (local && local.length > 0) {
+        setContacts(local);
       } else {
         setContacts(mockContacts);
-        localStorage.setItem('marketflow_contacts', JSON.stringify(mockContacts));
+        saveLocal(mockContacts);
       }
     }
     setLoading(false);
@@ -121,48 +138,54 @@ export function useContacts() {
       .single();
 
     if (error) {
-      // Fallback: save locally
       const newContact: Contact = { ...contact, id: `local-${Date.now()}` };
-      setContacts((prev) => {
+      setContacts(prev => {
         const next = [...prev, newContact];
-        localStorage.setItem('marketflow_contacts', JSON.stringify(next));
+        saveLocal(next);
         return next;
       });
+      toast.warning('Sparad lokalt (ingen Supabase-anslutning)');
       return newContact;
     }
     const newContact = dbToContact(data as unknown as DbContact);
-    setContacts((prev) => {
+    setContacts(prev => {
       const next = [...prev, newContact];
-      localStorage.setItem('marketflow_contacts', JSON.stringify(next));
+      saveLocal(next);
       return next;
     });
+    toast.success('Kund tillagd');
     return newContact;
   };
 
   const updateContact = async (contact: Contact) => {
+    // Update state and localStorage immediately
+    setContacts(prev => {
+      const next = prev.map(c => c.id === contact.id ? contact : c);
+      saveLocal(next);
+      return next;
+    });
+
+    // Then sync to Supabase
     const { error } = await supabase
       .from('contacts' as any)
       .update(contactToDb(contact) as any)
       .eq('id', contact.id);
 
     if (error) {
-      console.error(error);
-      // Still save locally
+      console.error('Supabase update failed:', error.message);
     }
-    setContacts((prev) => {
-      const next = prev.map((c) => (c.id === contact.id ? contact : c));
-      localStorage.setItem('marketflow_contacts', JSON.stringify(next));
-      return next;
-    });
     return true;
   };
 
   const updateField = async (id: string, field: keyof Contact, value: any) => {
-    const contact = contacts.find((c) => c.id === id);
-    if (!contact) return;
-    const updated = { ...contact, [field]: value };
-    setContacts((prev) => prev.map((c) => (c.id === id ? updated : c)));
+    // Update state and localStorage atomically using the setter's prev
+    setContacts(prev => {
+      const next = prev.map(c => c.id === id ? { ...c, [field]: value } : c);
+      saveLocal(next);
+      return next;
+    });
 
+    // Build the DB field name and value
     const dbFieldMap: Record<string, string> = {
       contactPerson: 'contact_person',
       startDate: 'start_date',
@@ -171,40 +194,39 @@ export function useContacts() {
       emails: 'emails',
       googleAdsCustomerId: 'google_ads_customer_id',
     };
-    // Convert emails array to comma-separated string for DB
+    let dbValue = value;
     if (field === 'emails' && Array.isArray(value)) {
-      value = (value as string[]).join(', ');
+      dbValue = (value as string[]).join(', ');
     }
     const dbField = dbFieldMap[field] || field;
 
     const { error } = await supabase
       .from('contacts' as any)
-      .update({ [dbField]: value } as any)
+      .update({ [dbField]: dbValue } as any)
       .eq('id', id);
 
     if (error) {
-      console.error(error);
+      console.error('Supabase field update failed:', error.message);
     }
-    // Persist locally regardless
-    const stored = contacts.map(c => c.id === id ? { ...c, [field]: value } : c);
-    localStorage.setItem('marketflow_contacts', JSON.stringify(stored));
   };
 
   const deleteContact = async (id: string) => {
+    // Update state and localStorage first
+    setContacts(prev => {
+      const next = prev.filter(c => c.id !== id);
+      saveLocal(next);
+      return next;
+    });
+
+    // Then sync to Supabase
     const { error } = await supabase
       .from('contacts' as any)
       .delete()
       .eq('id', id);
 
     if (error) {
-      console.error(error);
-      // Still delete locally
+      console.error('Supabase delete failed:', error.message);
     }
-    setContacts((prev) => {
-      const next = prev.filter((c) => c.id !== id);
-      localStorage.setItem('marketflow_contacts', JSON.stringify(next));
-      return next;
-    });
     toast.success('Kund borttagen');
     return true;
   };

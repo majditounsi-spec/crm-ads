@@ -7,13 +7,22 @@ const STORAGE_KEY = 'marketflow_projects';
 function loadProjects(): Project[] {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) return JSON.parse(stored);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
   } catch {}
+  // First load: save mock data to localStorage so it persists
+  saveProjects(mockProjects);
   return mockProjects;
 }
 
 function saveProjects(projects: Project[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+  } catch (e) {
+    console.error('Failed to save projects:', e);
+  }
 }
 
 export function useProjects() {

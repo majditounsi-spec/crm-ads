@@ -79,7 +79,18 @@ function saveConfig(config: FortnoxConfig) {
   localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
 }
 
-let invoiceCounter = 3;
+function getNextInvoiceNumber(invoices: FortnoxInvoice[]): string {
+  const year = new Date().getFullYear();
+  let maxNum = 0;
+  for (const inv of invoices) {
+    const match = inv.invoiceNumber.match(/^\d{4}-(\d+)$/);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (num > maxNum) maxNum = num;
+    }
+  }
+  return `${year}-${String(maxNum + 1).padStart(3, '0')}`;
+}
 
 export function useFortnox() {
   const [invoices, setInvoicesState] = useState<FortnoxInvoice[]>(loadInvoices);
@@ -110,7 +121,8 @@ export function useFortnox() {
     id: string; name: string; company: string; value: number;
     recipientEmail: string; recipientName: string; tags: string[];
   }) => {
-    const invoiceNumber = `2026-${String(invoiceCounter++).padStart(3, '0')}`;
+    const currentInvoices = loadInvoices();
+    const invoiceNumber = getNextInvoiceNumber(currentInvoices);
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 30);
 
@@ -139,7 +151,8 @@ export function useFortnox() {
     customerName: string; customerEmail: string; description: string;
     items: InvoiceItem[];
   }) => {
-    const invoiceNumber = `2026-${String(invoiceCounter++).padStart(3, '0')}`;
+    const currentInvoices = loadInvoices();
+    const invoiceNumber = getNextInvoiceNumber(currentInvoices);
     const amount = data.items.reduce((s, i) => s + i.total, 0);
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 30);
