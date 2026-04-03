@@ -1,7 +1,24 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Plus, Clock, Play, Square, Timer, BarChart3, Calendar, Trash2 } from 'lucide-react';
-import { mockTimeEntries, mockProjects } from '@/data/mockData';
+import { mockTimeEntries } from '@/data/mockData';
+import { useProjects } from '@/hooks/useProjects';
 import { TimeEntry } from '@/types/crm';
+
+const TIME_STORAGE_KEY = 'marketflow_time_global';
+
+function loadTimeEntries(): TimeEntry[] {
+  try {
+    const raw = localStorage.getItem(TIME_STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch { /* ignore */ }
+  return mockTimeEntries;
+}
+
+function saveTimeEntries(entries: TimeEntry[]) {
+  try {
+    localStorage.setItem(TIME_STORAGE_KEY, JSON.stringify(entries));
+  } catch { /* ignore */ }
+}
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -50,7 +67,15 @@ const item = {
 };
 
 export default function TimeTracking() {
-  const [entries, setEntries] = useState<TimeEntry[]>(mockTimeEntries);
+  const { projects } = useProjects();
+  const [entries, _setEntries] = useState<TimeEntry[]>(loadTimeEntries);
+  const setEntries: typeof _setEntries = (update) => {
+    _setEntries(prev => {
+      const next = typeof update === 'function' ? update(prev) : update;
+      saveTimeEntries(next);
+      return next;
+    });
+  };
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newEntry, setNewEntry] = useState({ projectId: '', description: '', hours: '', date: new Date().toISOString().split('T')[0] });
 
@@ -85,7 +110,7 @@ export default function TimeTracking() {
     setTimerRunning(false);
     const hours = Math.round((timerSeconds / 3600) * 10) / 10;
     if (hours >= 0.1) {
-      const project = mockProjects.find(p => p.id === timerProject);
+      const project = projects.find(p => p.id === timerProject);
       const entry: TimeEntry = {
         id: String(Date.now()),
         projectId: timerProject,
@@ -136,7 +161,7 @@ export default function TimeTracking() {
       toast.error('Fyll i alla fält');
       return;
     }
-    const project = mockProjects.find(p => p.id === newEntry.projectId);
+    const project = projects.find(p => p.id === newEntry.projectId);
     const entry: TimeEntry = {
       id: String(Date.now()),
       projectId: newEntry.projectId,
@@ -146,7 +171,7 @@ export default function TimeTracking() {
       date: newEntry.date,
       assignee: 'Anna S.',
     };
-    setEntries([entry, ...entries]);
+    setEntries(prev => [entry, ...prev]);
     setDialogOpen(false);
     setNewEntry({ projectId: '', description: '', hours: '', date: new Date().toISOString().split('T')[0] });
     toast.success('Tid registrerad!');
@@ -172,7 +197,7 @@ export default function TimeTracking() {
                 <Select value={newEntry.projectId} onValueChange={v => setNewEntry({...newEntry, projectId: v})}>
                   <SelectTrigger><SelectValue placeholder="Välj projekt" /></SelectTrigger>
                   <SelectContent>
-                    {mockProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                    {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -234,7 +259,7 @@ export default function TimeTracking() {
                     <SelectValue placeholder="Välj projekt..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                    {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 <Input

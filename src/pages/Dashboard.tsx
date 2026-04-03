@@ -8,7 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { StatusBadge } from '@/components/StatusBadge';
 import { PriorityBadge } from '@/components/PriorityBadge';
-import { mockProjects, mockTimeEntries, mockTasks } from '@/data/mockData';
+import { mockTimeEntries, mockTasks } from '@/data/mockData';
 import { useContacts } from '@/hooks/useContacts';
 import { useProjects } from '@/hooks/useProjects';
 import { motion } from 'framer-motion';
@@ -54,13 +54,37 @@ export default function Dashboard() {
   const { contacts } = useContacts();
   const { projects } = useProjects();
 
+  const timeEntries = useMemo(() => {
+    try {
+      const raw = localStorage.getItem('marketflow_time_global');
+      if (raw) return JSON.parse(raw);
+    } catch { /* ignore */ }
+    return mockTimeEntries;
+  }, []);
+
+  const tasks = useMemo(() => {
+    try {
+      // Aggregate tasks from all projects
+      const allTasks: any[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith('marketflow_tasks_')) {
+          const t = JSON.parse(localStorage.getItem(key) || '[]');
+          allTasks.push(...t);
+        }
+      }
+      if (allTasks.length > 0) return allTasks;
+    } catch { /* ignore */ }
+    return mockTasks;
+  }, []);
+
   const totalBudget = projects.reduce((sum, p) => sum + p.budget, 0);
   const totalSpent = projects.reduce((sum, p) => sum + p.spent, 0);
   const today = new Date().toISOString().split('T')[0];
-  const todayHours = mockTimeEntries.filter(e => e.date === today).reduce((sum, e) => sum + e.hours, 0);
+  const todayHours = timeEntries.filter((e: any) => e.date === today).reduce((sum: number, e: any) => sum + e.hours, 0);
   const activeProjects = projects.filter(p => p.status !== 'done').length;
-  const totalTasks = mockTasks.length;
-  const completedTasks = mockTasks.filter(t => t.completed).length;
+  const totalTasks = tasks.length;
+  const completedTasks = tasks.filter((t: any) => t.completed).length;
   const activeContacts = contacts.filter(c => c.status === 'active').length;
   const totalContactBudget = contacts.reduce((s, c) => s + c.budget, 0);
 
@@ -407,7 +431,7 @@ export default function Dashboard() {
               </div>
               <Progress value={(completedTasks / totalTasks) * 100} className="h-3 rounded-full" />
               <div className="mt-4 space-y-2">
-                {mockTasks.filter(t => !t.completed).slice(0, 5).map(task => (
+                {tasks.filter((t: any) => !t.completed).slice(0, 5).map((task: any) => (
                   <div key={task.id} className="flex items-center gap-2 text-sm">
                     <div className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
                     <span className="truncate">{task.title}</span>

@@ -198,18 +198,45 @@ interface ExtendedAutomation extends Automation {
   runCount?: number;
 }
 
+const AUTOMATION_STORAGE_KEY = 'marketflow_automations';
+
+function loadAutomations(): ExtendedAutomation[] {
+  try {
+    const stored = localStorage.getItem(AUTOMATION_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  const initial = mockAutomations.map(a => ({
+    ...a,
+    steps: [
+      { type: 'trigger' as const, value: '' },
+      { type: 'action' as const, value: '' },
+    ],
+    runCount: Math.floor(Math.random() * 50) + 1,
+    category: 'Anpassad',
+  }));
+  saveAutomations(initial);
+  return initial;
+}
+
+function saveAutomations(automations: ExtendedAutomation[]) {
+  try {
+    localStorage.setItem(AUTOMATION_STORAGE_KEY, JSON.stringify(automations));
+  } catch {}
+}
+
 export default function Automations() {
-  const [automations, setAutomations] = useState<ExtendedAutomation[]>(
-    mockAutomations.map(a => ({
-      ...a,
-      steps: [
-        { type: 'trigger' as const, value: '' },
-        { type: 'action' as const, value: '' },
-      ],
-      runCount: Math.floor(Math.random() * 50) + 1,
-      category: 'Anpassad',
-    }))
-  );
+  const [automations, setAutomationsState] = useState<ExtendedAutomation[]>(loadAutomations);
+
+  const setAutomations = (updater: ExtendedAutomation[] | ((prev: ExtendedAutomation[]) => ExtendedAutomation[])) => {
+    setAutomationsState(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      saveAutomations(next);
+      return next;
+    });
+  };
   const [dialogOpen, setDialogOpen] = useState(false);
   const [builderMode, setBuilderMode] = useState<'template' | 'custom'>('template');
   const [search, setSearch] = useState('');
@@ -224,9 +251,11 @@ export default function Automations() {
   ]);
 
   const toggleActive = (id: string) => {
-    setAutomations(prev => prev.map(a => a.id === id ? { ...a, active: !a.active } : a));
     const auto = automations.find(a => a.id === id);
-    toast.success(auto?.active ? 'Automation pausad' : 'Automation aktiverad');
+    if (!auto) return;
+    const wasActive = auto.active;
+    setAutomations(prev => prev.map(a => a.id === id ? { ...a, active: !a.active } : a));
+    toast.success(wasActive ? 'Automation pausad' : 'Automation aktiverad');
   };
 
   const deleteAutomation = (id: string) => {
