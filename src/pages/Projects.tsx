@@ -177,9 +177,9 @@ export default function Projects() {
 
   const projectsByStatus = useMemo(() => {
     const map: Record<ProjectStatus, Project[]> = { pending: [], working: [], review: [], done: [], stuck: [] };
-    projects.forEach(p => map[p.status].push(p));
+    filtered.forEach(p => map[p.status].push(p));
     return map;
-  }, [projects]);
+  }, [filtered]);
 
   const handleDelete = (id: string) => {
     deleteProject(id);
