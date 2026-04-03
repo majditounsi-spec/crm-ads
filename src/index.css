@@ -6,88 +6,98 @@
 
 @layer base {
   :root {
-    /* Apple-inspired: clean, airy, subtle */
-    --background: 0 0% 98%;
-    --foreground: 0 0% 9%;
+    /* iOS Light — clean white surfaces, subtle gray separators */
+    --background: 0 0% 96%;
+    --foreground: 0 0% 0%;
 
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 9%;
+    --card-foreground: 0 0% 0%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 9%;
+    --popover-foreground: 0 0% 0%;
 
-    --primary: 250 80% 60%;
+    --primary: 211 100% 50%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 240 5% 96%;
-    --secondary-foreground: 0 0% 9%;
+    --secondary-foreground: 0 0% 0%;
 
-    --muted: 240 5% 94%;
+    --muted: 240 5% 93%;
     --muted-foreground: 240 4% 46%;
 
-    --accent: 250 60% 96%;
-    --accent-foreground: 250 80% 40%;
+    --accent: 211 60% 95%;
+    --accent-foreground: 211 100% 40%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 240 6% 90%;
     --input: 240 6% 90%;
-    --ring: 250 80% 60%;
+    --ring: 211 100% 50%;
 
-    --radius: 1rem;
+    --radius: 0.75rem;
 
     /* CRM Status Colors */
-    --status-done: 152 69% 45%;
+    --status-done: 142 71% 45%;
     --status-working: 38 92% 50%;
     --status-stuck: 0 72% 51%;
-    --status-pending: 217 91% 60%;
+    --status-pending: 211 100% 50%;
     --status-review: 271 76% 53%;
 
-    /* Sidebar */
-    --sidebar-background: 240 6% 6%;
-    --sidebar-foreground: 240 5% 68%;
-    --sidebar-primary: 250 80% 60%;
+    /* Sidebar — iOS dark panel */
+    --sidebar-background: 0 0% 13%;
+    --sidebar-foreground: 0 0% 70%;
+    --sidebar-primary: 211 100% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 5% 12%;
+    --sidebar-accent: 0 0% 18%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 240 5% 14%;
-    --sidebar-ring: 250 80% 60%;
-    --sidebar-muted: 240 5% 38%;
+    --sidebar-border: 0 0% 20%;
+    --sidebar-ring: 211 100% 50%;
+    --sidebar-muted: 0 0% 45%;
 
-    /* Fonts — Apple SF Pro style via Inter */
-    --font-heading: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
-    --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    /* Fonts — SF Pro via Inter */
+    --font-heading: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+    --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
   }
 
   .dark {
-    --background: 240 6% 4%;
-    --foreground: 0 0% 95%;
-    --card: 240 6% 7%;
-    --card-foreground: 0 0% 95%;
-    --popover: 240 6% 7%;
-    --popover-foreground: 0 0% 95%;
-    --primary: 250 80% 64%;
+    /* iOS Dark — elevated dark surfaces, OLED-friendly */
+    --background: 0 0% 0%;
+    --foreground: 0 0% 98%;
+
+    --card: 0 0% 11%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 0 0% 11%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 211 100% 50%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 240 5% 12%;
-    --secondary-foreground: 0 0% 95%;
-    --muted: 240 5% 14%;
-    --muted-foreground: 240 4% 55%;
-    --accent: 250 40% 15%;
-    --accent-foreground: 250 80% 82%;
-    --destructive: 0 62% 30%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5% 14%;
-    --input: 240 5% 14%;
-    --ring: 250 80% 64%;
-    --sidebar-background: 240 6% 3%;
-    --sidebar-foreground: 240 5% 65%;
-    --sidebar-primary: 250 80% 64%;
+
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 55%;
+
+    --accent: 211 40% 18%;
+    --accent-foreground: 211 100% 75%;
+
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 18%;
+    --input: 0 0% 18%;
+    --ring: 211 100% 50%;
+
+    --sidebar-background: 0 0% 0%;
+    --sidebar-foreground: 0 0% 65%;
+    --sidebar-primary: 211 100% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 6% 8%;
+    --sidebar-accent: 0 0% 11%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 240 6% 10%;
-    --sidebar-ring: 250 80% 64%;
+    --sidebar-border: 0 0% 14%;
+    --sidebar-ring: 211 100% 50%;
   }
 }
 
@@ -123,7 +133,7 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Apple-style thin scrollbar */
+/* iOS-style thin scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -132,20 +142,20 @@ html {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground) / 0.12);
+  background: hsl(var(--muted-foreground) / 0.15);
   border-radius: 99px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground) / 0.25);
+  background: hsl(var(--muted-foreground) / 0.3);
 }
 
-/* Row hover effects — subtle Apple style */
+/* Row hover — iOS grouped list style */
 .monday-row {
   position: relative;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.15s ease;
 }
 .monday-row:hover {
-  background: hsl(var(--primary) / 0.03);
+  background: hsl(var(--primary) / 0.04);
 }
 .monday-row::before {
   content: '';
@@ -153,28 +163,41 @@ html {
   left: 0;
   top: 0;
   bottom: 0;
-  width: 2.5px;
+  width: 3px;
   background: hsl(var(--primary));
-  border-radius: 0 2px 2px 0;
+  border-radius: 0 3px 3px 0;
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.15s ease;
 }
 .monday-row:hover::before {
   opacity: 1;
 }
 
-/* Card hover — subtle lift */
+/* Card hover — iOS card lift */
 .kanban-card {
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.25s ease;
 }
 .kanban-card:hover {
   transform: translateY(-2px);
-  box-shadow:
-    0 4px 16px -2px hsl(var(--foreground) / 0.06),
-    0 1px 4px -1px hsl(var(--foreground) / 0.03);
+  box-shadow: 0 8px 25px -5px hsl(var(--foreground) / 0.08);
 }
 
-/* Apple frosted glass */
+/* Drag active state */
+.kanban-card.dragging {
+  opacity: 0.9;
+  transform: scale(1.02) rotate(1deg);
+  box-shadow: 0 12px 40px -8px hsl(var(--primary) / 0.25);
+  z-index: 50;
+}
+
+/* Drop zone highlight */
+.drop-zone-active {
+  background: hsl(var(--primary) / 0.06);
+  border: 2px dashed hsl(var(--primary) / 0.3);
+  border-radius: var(--radius);
+}
+
+/* iOS frosted glass */
 .glass-card {
   background: hsl(var(--card) / 0.72);
   backdrop-filter: saturate(180%) blur(20px);
@@ -214,21 +237,50 @@ html {
   animation: shimmer 1.5s infinite;
 }
 
-/* Apple-style selection */
+/* iOS-style selection */
 ::selection {
-  background: hsl(var(--primary) / 0.15);
+  background: hsl(var(--primary) / 0.2);
 }
 
-/* Smooth transitions — Apple's ease curve */
+/* iOS smooth transitions */
 button, a, [role="button"] {
   transition-property: color, background-color, border-color, opacity, box-shadow, transform;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition-duration: 150ms;
 }
 
-/* Apple-style focus ring */
+/* iOS focus ring */
 *:focus-visible {
-  outline: 2px solid hsl(var(--primary) / 0.5);
+  outline: 3px solid hsl(var(--primary) / 0.4);
   outline-offset: 2px;
   border-radius: var(--radius);
+}
+
+/* iOS toggle switch */
+.ios-toggle {
+  width: 51px;
+  height: 31px;
+  border-radius: 15.5px;
+  background: hsl(var(--muted));
+  position: relative;
+  cursor: pointer;
+  transition: background 0.25s ease;
+}
+.ios-toggle.active {
+  background: hsl(var(--primary));
+}
+.ios-toggle::after {
+  content: '';
+  position: absolute;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: white;
+  top: 2px;
+  left: 2px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  transition: transform 0.25s ease;
+}
+.ios-toggle.active::after {
+  transform: translateX(20px);
 }

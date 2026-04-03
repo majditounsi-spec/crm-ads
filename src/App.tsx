@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { WhiteLabelProvider } from "@/hooks/useWhiteLabel";
 import { AuthProvider } from "@/hooks/useAuth";
+import { ThemeProvider } from "@/hooks/useTheme";
 import { Layout } from "@/components/Layout";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
@@ -19,12 +20,14 @@ import Integrations from "@/pages/Integrations";
 import ActivityLog from "@/pages/ActivityLog";
 import Settings from "@/pages/Settings";
 import UserManagement from "@/pages/UserManagement";
+import LandingPage from "@/pages/LandingPage";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
+    <ThemeProvider>
     <WhiteLabelProvider>
       <AuthProvider>
         <TooltipProvider>
@@ -32,6 +35,7 @@ const App = () => (
           <Sonner />
           <HashRouter>
             <Routes>
+              <Route path="/landing" element={<LandingPage />} />
               <Route path="/login" element={<Login />} />
               <Route element={<Layout />}>
                 <Route path="/" element={<Dashboard />} />
@@ -53,6 +57,7 @@ const App = () => (
         </TooltipProvider>
       </AuthProvider>
     </WhiteLabelProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 
