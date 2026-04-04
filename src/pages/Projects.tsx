@@ -19,6 +19,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Project, ProjectStatus, ProjectPriority } from '@/types/crm';
+import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { toast } from 'sonner';
 import {
   DndContext, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors,
@@ -125,7 +126,7 @@ function saveProjectTasks(projectId: string, tasks: Task[]) {
   } catch {}
 }
 
-function renderCell(project: Project, col: ColumnKey, navigate: (path: string) => void, updateProject: (id: string, updates: Partial<Project>) => void) {
+function renderCell(project: Project, col: ColumnKey, navigate: (path: string) => void, updateProject: (id: string, updates: Partial<Project>) => void, teamMembers?: string[]) {
   const pct = project.budget > 0 ? Math.round((project.spent / project.budget) * 100) : 0;
   switch (col) {
     case 'name':
@@ -160,7 +161,14 @@ function renderCell(project: Project, col: ColumnKey, navigate: (path: string) =
         </Select>
       );
     case 'assignee':
-      return <span className="text-sm truncate block">{project.assignee}</span>;
+      return teamMembers && teamMembers.length > 0 ? (
+        <Select value={project.assignee} onValueChange={v => { updateProject(project.id, { assignee: v }); toast.success('Ansvarig uppdaterad'); }}>
+          <SelectTrigger className="h-7 w-full border-none bg-transparent p-0 px-1 shadow-none focus:ring-0 [&>svg]:opacity-0 hover:[&>svg]:opacity-100 text-sm">
+            <SelectValue>{project.assignee}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>{teamMembers.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}</SelectContent>
+        </Select>
+      ) : <span className="text-sm truncate block">{project.assignee}</span>;
     case 'budget':
       return (
         <div className="space-y-1">
@@ -281,6 +289,7 @@ function DragOverlayCard({ project }: { project: Project }) {
 export default function Projects() {
   const navigate = useNavigate();
   const { projects, addProject, updateProject, deleteProject } = useProjects();
+  const { memberNames } = useTeamMembers();
   const [filter, setFilter] = useState<ProjectStatus | 'all'>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('kanban');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -546,7 +555,14 @@ export default function Projects() {
               <div className="space-y-4 pt-2">
                 <div><Label className="text-xs">Projektnamn</Label><Input value={newProject.name} onChange={e => setNewProject({...newProject, name: e.target.value})} placeholder="T.ex. SEO Kampanj" className="rounded-lg" /></div>
                 <div><Label className="text-xs">Kund</Label><Input value={newProject.client} onChange={e => setNewProject({...newProject, client: e.target.value})} placeholder="Kundnamn" className="rounded-lg" /></div>
-                <div><Label className="text-xs">Ansvarig</Label><Input value={newProject.assignee} onChange={e => setNewProject({...newProject, assignee: e.target.value})} placeholder="Namn" className="rounded-lg" /></div>
+                <div><Label className="text-xs">Ansvarig</Label>
+                  <Select value={newProject.assignee} onValueChange={v => setNewProject({...newProject, assignee: v})}>
+                    <SelectTrigger className="rounded-lg"><SelectValue placeholder="Välj ansvarig" /></SelectTrigger>
+                    <SelectContent>
+                      {memberNames.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div><Label className="text-xs">Status</Label>
                     <Select value={newProject.status} onValueChange={v => setNewProject({...newProject, status: v as ProjectStatus})}>
@@ -689,7 +705,7 @@ export default function Projects() {
                                     {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
                                   </button>
                                   <div className="min-w-0 flex-1">
-                                    {renderCell(project, key, navigate, updateProject)}
+                                    {renderCell(project, key, navigate, updateProject, memberNames)}
                                     {tasks.length > 0 && !isExpanded && (
                                       <span className="text-[10px] text-muted-foreground mt-0.5 block">{completedCount}/{tasks.length} uppgifter klara</span>
                                     )}

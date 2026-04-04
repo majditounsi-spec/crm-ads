@@ -61,12 +61,30 @@ const roleConfig: Record<Role, { label: string; className: string; icon: any }> 
 
 const STORAGE_KEY = 'marketflow_team_members';
 
+const demoMembers: TeamMember[] = [
+  { id: 'tm-1', email: 'kevin@byrå.se', name: 'Kevin', avatarUrl: '', role: 'member', active: true, permissions: { contacts: true, projects: true, billing: false, settings: false, googleAds: true, reports: true } },
+  { id: 'tm-2', email: 'elin@byrå.se', name: 'Elin', avatarUrl: '', role: 'manager', active: true, permissions: { contacts: true, projects: true, billing: true, settings: false, googleAds: true, reports: true } },
+  { id: 'tm-3', email: 'dan@byrå.se', name: 'Dan', avatarUrl: '', role: 'member', active: true, permissions: { contacts: true, projects: true, billing: false, settings: false, googleAds: true, reports: true } },
+  { id: 'tm-4', email: 'anell@byrå.se', name: 'Anell', avatarUrl: '', role: 'member', active: true, permissions: { contacts: true, projects: true, billing: false, settings: false, googleAds: false, reports: true } },
+  { id: 'tm-5', email: 'hussein@byrå.se', name: 'Hussein', avatarUrl: '', role: 'member', active: true, permissions: { contacts: true, projects: true, billing: false, settings: false, googleAds: true, reports: true } },
+  { id: 'tm-6', email: 'alban@byrå.se', name: 'Alban', avatarUrl: '', role: 'member', active: true, permissions: { contacts: true, projects: true, billing: false, settings: false, googleAds: false, reports: true } },
+  { id: 'tm-7', email: 'jonas@byrå.se', name: 'Jonas', avatarUrl: '', role: 'member', active: true, permissions: { contacts: true, projects: true, billing: false, settings: false, googleAds: true, reports: true } },
+  { id: 'tm-8', email: 'roine@byrå.se', name: 'Roine', avatarUrl: '', role: 'manager', active: true, permissions: { contacts: true, projects: true, billing: true, settings: true, googleAds: true, reports: true } },
+  { id: 'tm-9', email: 'therese@byrå.se', name: 'Therese', avatarUrl: '', role: 'member', active: true, permissions: { contacts: true, projects: true, billing: false, settings: false, googleAds: false, reports: true } },
+  { id: 'tm-10', email: 'shodran@byrå.se', name: 'Shodran', avatarUrl: '', role: 'member', active: true, permissions: { contacts: true, projects: true, billing: false, settings: false, googleAds: true, reports: true } },
+  { id: 'tm-11', email: 'marcus@byrå.se', name: 'Marcus', avatarUrl: '', role: 'member', active: true, permissions: { contacts: true, projects: true, billing: false, settings: false, googleAds: true, reports: true } },
+];
+
 function loadMembers(): TeamMember[] {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) return JSON.parse(stored);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
   } catch {}
-  return [];
+  saveMembers(demoMembers);
+  return demoMembers;
 }
 
 function saveMembers(members: TeamMember[]) {
