@@ -19,6 +19,8 @@ import SalesBoard from "@/pages/SalesBoard";
 import Integrations from "@/pages/Integrations";
 import ActivityLog from "@/pages/ActivityLog";
 import Settings from "@/pages/Settings";
+import GetAcceptDemo from "@/pages/GetAcceptDemo";
+import Reports from "@/pages/Reports";
 import UserManagement from "@/pages/UserManagement";
 import LandingPage from "@/pages/LandingPage";
 import NotFound from "./pages/NotFound.tsx";
@@ -46,6 +48,8 @@ const App = () => (
                 <Route path="/contacts" element={<Contacts />} />
                 <Route path="/google-ads" element={<GoogleAds />} />
                 <Route path="/sales" element={<SalesBoard />} />
+                <Route path="/getaccept" element={<GetAcceptDemo />} />
+                <Route path="/reports" element={<Reports />} />
                 <Route path="/integrations" element={<Integrations />} />
                 <Route path="/activity" element={<ActivityLog />} />
                 <Route path="/settings" element={<Settings />} />

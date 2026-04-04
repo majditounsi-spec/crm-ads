@@ -11,6 +11,8 @@ import { PriorityBadge } from '@/components/PriorityBadge';
 import { mockTimeEntries, mockTasks } from '@/data/mockData';
 import { useContacts } from '@/hooks/useContacts';
 import { useProjects } from '@/hooks/useProjects';
+import { useGetAccept } from '@/hooks/useGetAccept';
+import { useFortnox } from '@/hooks/useFortnox';
 import { motion } from 'framer-motion';
 import { Progress } from '@/components/ui/progress';
 import { Link } from 'react-router-dom';
@@ -53,6 +55,8 @@ const SERVICE_ICONS: Record<string, any> = {
 export default function Dashboard() {
   const { contacts } = useContacts();
   const { projects } = useProjects();
+  const { deals } = useGetAccept();
+  const { totalRevenue, totalOutstanding } = useFortnox();
 
   const timeEntries = useMemo(() => {
     try {
@@ -87,6 +91,9 @@ export default function Dashboard() {
   const completedTasks = tasks.filter((t: any) => t.completed).length;
   const activeContacts = contacts.filter(c => c.status === 'active').length;
   const totalContactBudget = contacts.reduce((s, c) => s + c.budget, 0);
+  const signedDeals = deals.filter(d => d.status === 'signed').length;
+  const pendingDeals = deals.filter(d => ['sent', 'viewed'].includes(d.status)).length;
+  const winRate = deals.length > 0 ? Math.round((signedDeals / deals.length) * 100) : 0;
 
   // ── AI Forecasting (simulated based on pipeline data) ───────────
   const pipelineValue = useMemo(() => {
@@ -176,7 +183,7 @@ export default function Dashboard() {
           { title: 'Aktiva Projekt', value: activeProjects, icon: FolderKanban, change: `${projects.length} totalt`, positive: true, color: 'from-violet-500/10 to-violet-500/5', iconColor: 'text-violet-500 bg-violet-500/10' },
           { title: 'Kunder', value: activeContacts, icon: Users, change: `${contacts.length} totalt`, positive: true, color: 'from-blue-500/10 to-blue-500/5', iconColor: 'text-blue-500 bg-blue-500/10' },
           { title: 'Månadsomsättning', value: totalContactBudget, suffix: ' kr', icon: DollarSign, change: '+12% prognos', positive: true, color: 'from-emerald-500/10 to-emerald-500/5', iconColor: 'text-emerald-500 bg-emerald-500/10' },
-          { title: 'Pipeline', value: pipelineValue.total, suffix: ' kr', icon: TrendingUp, change: `${pipelineValue.leadCount} leads`, positive: true, color: 'from-amber-500/10 to-amber-500/5', iconColor: 'text-amber-500 bg-amber-500/10' },
+          { title: 'Offerter', value: deals.reduce((s, d) => s + d.value, 0), suffix: ' kr', icon: TrendingUp, change: `${signedDeals} signerade · ${pendingDeals} väntande`, positive: winRate > 30, color: 'from-amber-500/10 to-amber-500/5', iconColor: 'text-amber-500 bg-amber-500/10' },
         ].map((stat) => (
           <motion.div key={stat.title} variants={item}>
             <Card className="overflow-hidden hover:shadow-md transition-shadow group">
@@ -227,6 +234,64 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+      </motion.div>
+
+      {/* Quick sales summary */}
+      <motion.div variants={item}>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Link to="/sales" className="block">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer group">
+              <CardContent className="py-3 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-emerald-500/10 group-hover:scale-110 transition-transform">
+                  <DollarSign className="h-4 w-4 text-emerald-500" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Betalt</p>
+                  <p className="text-sm font-heading font-bold">{(totalRevenue / 1000).toFixed(0)}k kr</p>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link to="/sales" className="block">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer group">
+              <CardContent className="py-3 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-amber-500/10 group-hover:scale-110 transition-transform">
+                  <FileText className="h-4 w-4 text-amber-500" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Utestående</p>
+                  <p className="text-sm font-heading font-bold">{(totalOutstanding / 1000).toFixed(0)}k kr</p>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link to="/getaccept" className="block">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer group">
+              <CardContent className="py-3 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-blue-500/10 group-hover:scale-110 transition-transform">
+                  <FileText className="h-4 w-4 text-blue-500" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Win Rate</p>
+                  <p className="text-sm font-heading font-bold">{winRate}%</p>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link to="/reports" className="block">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer group">
+              <CardContent className="py-3 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-violet-500/10 group-hover:scale-110 transition-transform">
+                  <BarChart3 className="h-4 w-4 text-violet-500" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Rapporter</p>
+                  <p className="text-sm font-heading font-bold">Visa alla</p>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, FolderKanban, Clock, Zap, Users, BarChart3, TrendingUp, Link2, Activity,
-  Sliders,
+  Sliders, FileSignature, PieChart,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useWhiteLabel } from '@/hooks/useWhiteLabel';
@@ -24,6 +24,8 @@ const allNavItems: NavItem[] = [
   { title: 'Google ADS', url: '/google-ads', icon: BarChart3, visibilityKey: 'showGoogleAds' },
   { title: 'Tidloggning', url: '/time', icon: Clock },
   { title: 'Automationer', url: '/automations', icon: Zap },
+  { title: 'GetAccept', url: '/getaccept', icon: FileSignature },
+  { title: 'Rapporter', url: '/reports', icon: PieChart },
   { title: 'Integrationer', url: '/integrations', icon: Link2 },
   { title: 'Aktivitetslogg', url: '/activity', icon: Activity },
 ];
