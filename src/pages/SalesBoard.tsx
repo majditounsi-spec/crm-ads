@@ -58,7 +58,7 @@ const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 
 export default function SalesBoard() {
   const navigate = useNavigate();
-  const { deals: gaDeals, config: gaConfig, connect: connectGA, disconnect: disconnectGA, syncDeals } = useGetAccept();
+  const { deals: gaDeals, config: gaConfig, connect: connectGA, disconnect: disconnectGA, syncDeals, deleteDeal } = useGetAccept();
   const { invoices, config: fnConfig, connect: connectFN, disconnect: disconnectFN, createInvoiceFromDeal, updateInvoiceStatus, isAlreadyInvoiced, totalRevenue, totalOutstanding } = useFortnox();
   const [search, setSearch] = useState('');
   const [view, setView] = useState<'pipeline' | 'invoices' | 'settings'>('pipeline');
@@ -195,7 +195,7 @@ export default function SalesBoard() {
                         const invoiced = isAlreadyInvoiced(deal.id);
                         return (
                           <motion.div key={deal.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
-                            className="bg-card rounded-xl border p-3.5 group hover:shadow-md transition-shadow">
+                            className="bg-card rounded-xl border p-3.5 group hover:shadow-md transition-shadow relative">
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0 flex-1">
                                 <p className="font-medium text-sm truncate">{deal.name}</p>
@@ -221,6 +221,13 @@ export default function SalesBoard() {
                               <div className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {deal.createdAt}</div>
                               <div className="flex items-center gap-1"><Mail className="h-3 w-3" /> {deal.recipientEmail}</div>
                             </div>
+
+                            {/* Delete deal */}
+                            <Button size="sm" variant="ghost"
+                              className="absolute top-2 right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                              onClick={() => { deleteDeal(deal.id); toast.success('Offert borttagen'); }}>
+                              <XCircle className="h-3.5 w-3.5" />
+                            </Button>
 
                             {/* Actions */}
                             {deal.status === 'signed' && (

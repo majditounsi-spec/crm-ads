@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import {
   Settings as SettingsIcon, Palette, Building2, Upload, RotateCcw, Check,
   Eye, Type, Radius, Sun, Moon, Sparkles, Image, Shield, Users, Globe,
-  Target, TrendingUp, Camera, Monitor,
+  Target, TrendingUp, Camera, Monitor, Clock,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -39,7 +39,123 @@ const presetColors: Record<string, string> = {
 export default function Settings() {
   const { config, updateConfig, resetConfig, applyPreset } = useWhiteLabel();
   const logoInputRef = useRef<HTMLInputElement>(null);
-  const [activeTab, setActiveTab] = useState<'brand' | 'theme' | 'services'>('brand');
+  const [activeTab, setActiveTab] = useState<'brand' | 'theme' | 'services' | 'roles'>('brand');
+
+  // ── Roles ──
+  const ROLES_KEY = 'marketflow_roles';
+  type RoleKey = 'super_admin' | 'sales' | 'production' | 'viewer';
+  interface RolePermissions {
+    contacts: boolean;
+    projects: boolean;
+    sales: boolean;
+    invoices: boolean;
+    timeTracking: boolean;
+    automations: boolean;
+    googleAds: boolean;
+    reports: boolean;
+    settings: boolean;
+    users: boolean;
+  }
+  interface RoleConfig {
+    name: string;
+    description: string;
+    color: string;
+    permissions: RolePermissions;
+    locked?: boolean;
+  }
+
+  const defaultRoles: Record<RoleKey, RoleConfig> = {
+    super_admin: {
+      name: 'Super Admin',
+      description: 'Full tillgång till alla funktioner och inställningar',
+      color: 'bg-red-500',
+      locked: true,
+      permissions: {
+        contacts: true, projects: true, sales: true, invoices: true,
+        timeTracking: true, automations: true, googleAds: true, reports: true,
+        settings: true, users: true,
+      },
+    },
+    sales: {
+      name: 'Säljare',
+      description: 'Hanterar kunder, offerter och fakturor',
+      color: 'bg-blue-500',
+      permissions: {
+        contacts: true, projects: false, sales: true, invoices: true,
+        timeTracking: false, automations: false, googleAds: false, reports: true,
+        settings: false, users: false,
+      },
+    },
+    production: {
+      name: 'Produktion',
+      description: 'Hanterar projekt, uppgifter och tidloggning',
+      color: 'bg-emerald-500',
+      permissions: {
+        contacts: true, projects: true, sales: false, invoices: false,
+        timeTracking: true, automations: true, googleAds: true, reports: true,
+        settings: false, users: false,
+      },
+    },
+    viewer: {
+      name: 'Läsbehörighet',
+      description: 'Kan se men inte ändra data',
+      color: 'bg-gray-400',
+      permissions: {
+        contacts: true, projects: true, sales: true, invoices: true,
+        timeTracking: true, automations: false, googleAds: true, reports: true,
+        settings: false, users: false,
+      },
+    },
+  };
+
+  function loadRoles(): Record<RoleKey, RoleConfig> {
+    try {
+      const stored = localStorage.getItem(ROLES_KEY);
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return defaultRoles;
+  }
+
+  function saveRoles(roles: Record<RoleKey, RoleConfig>) {
+    try { localStorage.setItem(ROLES_KEY, JSON.stringify(roles)); } catch {}
+  }
+
+  const [roles, setRolesState] = useState<Record<RoleKey, RoleConfig>>(loadRoles);
+  const setRoles = (updater: Record<RoleKey, RoleConfig> | ((prev: Record<RoleKey, RoleConfig>) => Record<RoleKey, RoleConfig>)) => {
+    setRolesState(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      saveRoles(next);
+      return next;
+    });
+  };
+
+  const permissionLabels: Record<keyof RolePermissions, { label: string; icon: any }> = {
+    contacts: { label: 'Kunder', icon: Users },
+    projects: { label: 'Projekt', icon: SettingsIcon },
+    sales: { label: 'Säljtavla', icon: TrendingUp },
+    invoices: { label: 'Fakturor', icon: Shield },
+    timeTracking: { label: 'Tidloggning', icon: Clock },
+    automations: { label: 'Automatiseringar', icon: Sparkles },
+    googleAds: { label: 'Google Ads', icon: Globe },
+    reports: { label: 'Rapporter', icon: Eye },
+    settings: { label: 'Inställningar', icon: SettingsIcon },
+    users: { label: 'Användare', icon: Users },
+  };
+
+  const togglePermission = (roleKey: RoleKey, perm: keyof RolePermissions) => {
+    if (roleKey === 'super_admin') return; // Can't edit super admin
+    setRoles(prev => ({
+      ...prev,
+      [roleKey]: {
+        ...prev[roleKey],
+        permissions: {
+          ...prev[roleKey].permissions,
+          [perm]: !prev[roleKey].permissions[perm],
+        },
+      },
+    }));
+    toast.success('Behörighet uppdaterad');
+  };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -79,6 +195,7 @@ export default function Settings() {
           { key: 'brand' as const, label: 'Varumärke', icon: Building2 },
           { key: 'theme' as const, label: 'Tema & Utseende', icon: Palette },
           { key: 'services' as const, label: 'Tjänster', icon: SettingsIcon },
+          { key: 'roles' as const, label: 'Roller', icon: Shield },
         ].map(tab => (
           <Button key={tab.key}
             variant={activeTab === tab.key ? 'default' : 'outline'}
@@ -444,6 +561,99 @@ export default function Settings() {
             </CardContent>
           </Card>
         </motion.div>
+      )}
+
+      {activeTab === 'roles' && (
+        <div className="space-y-6">
+          <motion.div variants={item}>
+            <Card>
+              <CardContent className="pt-5 pb-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Shield className="h-4 w-4 text-primary" />
+                  <h3 className="font-heading font-semibold text-sm">Rollstruktur</h3>
+                </div>
+                <p className="text-xs text-muted-foreground mb-5">
+                  Konfigurera vilka funktioner varje roll har tillgång till. Super Admin har alltid full tillgång.
+                </p>
+
+                {/* Permissions matrix */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-2.5 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider w-[180px]">Funktion</th>
+                        {(Object.keys(roles) as RoleKey[]).map(roleKey => {
+                          const role = roles[roleKey];
+                          return (
+                            <th key={roleKey} className="text-center py-2.5 px-2 min-w-[100px]">
+                              <div className="flex flex-col items-center gap-1">
+                                <div className={`w-3 h-3 rounded-full ${role.color}`} />
+                                <span className="text-xs font-semibold">{role.name}</span>
+                              </div>
+                            </th>
+                          );
+                        })}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {(Object.keys(permissionLabels) as (keyof RolePermissions)[]).map(perm => {
+                        const PermIcon = permissionLabels[perm].icon;
+                        return (
+                          <tr key={perm} className="hover:bg-muted/30 transition-colors">
+                            <td className="py-2.5 px-3">
+                              <div className="flex items-center gap-2">
+                                <PermIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                                <span className="text-xs font-medium">{permissionLabels[perm].label}</span>
+                              </div>
+                            </td>
+                            {(Object.keys(roles) as RoleKey[]).map(roleKey => (
+                              <td key={roleKey} className="text-center py-2.5 px-2">
+                                <Switch
+                                  checked={roles[roleKey].permissions[perm]}
+                                  disabled={roleKey === 'super_admin'}
+                                  onCheckedChange={() => togglePermission(roleKey, perm)}
+                                  className="mx-auto"
+                                />
+                              </td>
+                            ))}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Role descriptions */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {(Object.entries(roles) as [RoleKey, RoleConfig][]).map(([key, role]) => {
+              const enabledCount = Object.values(role.permissions).filter(Boolean).length;
+              const totalCount = Object.keys(role.permissions).length;
+              return (
+                <motion.div key={key} variants={item}>
+                  <Card className={`overflow-hidden ${key === 'super_admin' ? 'ring-1 ring-primary/30' : ''}`}>
+                    <CardContent className="pt-4 pb-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className={`w-4 h-4 rounded-full ${role.color} shadow-sm`} />
+                        <span className="font-heading font-semibold text-sm">{role.name}</span>
+                        {key === 'super_admin' && (
+                          <Badge className="text-[9px] bg-primary/10 text-primary border-primary/20 ml-auto">Din roll</Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mb-3">{role.description}</p>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">{enabledCount}/{totalCount} funktioner</span>
+                        <Progress value={(enabledCount / totalCount) * 100} className="w-16 h-1.5" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
       )}
     </motion.div>
   );

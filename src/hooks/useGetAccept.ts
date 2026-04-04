@@ -106,6 +106,16 @@ export function useGetAccept() {
     setDeals(prev => prev.map(d => d.id === id ? { ...d, status, ...(status === 'signed' ? { signedAt: new Date().toISOString().split('T')[0] } : {}) } : d));
   }, [setDeals]);
 
+  const deleteDeal = useCallback((id: string) => {
+    setDeals(prev => prev.filter(d => d.id !== id));
+  }, [setDeals]);
+
+  const addDeal = useCallback((deal: Omit<GetAcceptDeal, 'id'>) => {
+    const newDeal: GetAcceptDeal = { ...deal, id: `ga-${Date.now()}` };
+    setDeals(prev => [newDeal, ...prev]);
+    return newDeal;
+  }, [setDeals]);
+
   const getSignedDeals = useCallback(() => {
     return deals.filter(d => d.status === 'signed');
   }, [deals]);
@@ -114,5 +124,5 @@ export function useGetAccept() {
     return deals.filter(d => ['sent', 'viewed'].includes(d.status));
   }, [deals]);
 
-  return { deals, config, connect, disconnect, syncDeals, updateDealStatus, getSignedDeals, getPendingDeals };
+  return { deals, config, connect, disconnect, syncDeals, updateDealStatus, deleteDeal, addDeal, getSignedDeals, getPendingDeals };
 }

@@ -77,8 +77,8 @@ interface ColumnDef {
 }
 
 const allColumns: ColumnDef[] = [
-  { key: 'name', label: 'Projekt', width: '20%' },
-  { key: 'client', label: 'Kund', width: '13%' },
+  { key: 'name', label: 'Tjänst / Projekt', width: '20%' },
+  { key: 'client', label: 'Företag', width: '13%' },
   { key: 'status', label: 'Status', width: '11%' },
   { key: 'priority', label: 'Prioritet', width: '10%' },
   { key: 'assignee', label: 'Ansvarig', width: '12%' },
