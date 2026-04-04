@@ -1,6 +1,8 @@
-import { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Filter, Trash2, LayoutGrid, List, Calendar, Users, GripVertical, Clock, Columns3, Eye, EyeOff, ArrowUp, ArrowDown } from 'lucide-react';
+import { Plus, Filter, Trash2, LayoutGrid, List, Calendar, Users, GripVertical, Clock, Columns3, Eye, EyeOff, ArrowUp, ArrowDown, ChevronRight, ChevronDown, CheckCircle2 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Task } from '@/types/crm';
 import { StatusBadge } from '@/components/StatusBadge';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { useProjects } from '@/hooks/useProjects';
@@ -108,13 +110,33 @@ function saveColumnConfig(columns: ColumnKey[]) {
   } catch {}
 }
 
+// ── Task helpers for subtasks ──
+function loadProjectTasks(projectId: string): Task[] {
+  try {
+    const stored = localStorage.getItem(`marketflow_tasks_${projectId}`);
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return [];
+}
+
+function saveProjectTasks(projectId: string, tasks: Task[]) {
+  try {
+    localStorage.setItem(`marketflow_tasks_${projectId}`, JSON.stringify(tasks));
+  } catch {}
+}
+
 function renderCell(project: Project, col: ColumnKey, navigate: (path: string) => void, updateProject: (id: string, updates: Partial<Project>) => void) {
   const pct = project.budget > 0 ? Math.round((project.spent / project.budget) * 100) : 0;
   switch (col) {
     case 'name':
       return (
-        <div className="cursor-pointer truncate" onClick={() => navigate(`/projects/${project.id}`)}>
-          <span className="text-sm font-medium hover:text-primary transition-colors">{project.name}</span>
+        <div className="cursor-pointer" onClick={() => navigate(`/projects/${project.id}`)}>
+          <span className="text-sm font-medium hover:text-primary transition-colors block truncate">{project.name}</span>
+          {project.tags.length > 0 && (
+            <div className="flex gap-1 mt-1 flex-wrap">
+              {project.tags.map(tag => <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground">{tag}</span>)}
+            </div>
+          )}
         </div>
       );
     case 'client':
@@ -142,15 +164,14 @@ function renderCell(project: Project, col: ColumnKey, navigate: (path: string) =
     case 'budget':
       return (
         <div className="space-y-1">
-          <div className="text-xs font-medium">{(project.spent / 1000).toFixed(0)}k / {(project.budget / 1000).toFixed(0)}k kr</div>
+          <div className="text-xs font-medium tabular-nums">{project.budget.toLocaleString('sv-SE')} <span className="text-muted-foreground">kr</span></div>
           <Progress value={pct} className={`h-1 ${pct > 90 ? '[&>div]:bg-red-500' : ''}`} />
-          <div className="text-[10px] text-muted-foreground">{pct}% använt</div>
         </div>
       );
     case 'spent':
       return <span className="text-xs font-medium">{project.spent.toLocaleString('sv-SE')} kr</span>;
     case 'deadline':
-      return <span className="text-xs">{project.deadline}</span>;
+      return <span className="text-xs flex items-center gap-1"><Calendar className="h-3 w-3 text-muted-foreground" />{project.deadline}</span>;
     case 'tags':
       return project.tags.length > 0 ? (
         <div className="flex gap-1 flex-wrap">
@@ -362,6 +383,65 @@ export default function Projects() {
     }
     setActiveId(null);
   };
+
+  // Subtask state
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
+  const [projectTasks, setProjectTasks] = useState<Record<string, Task[]>>({});
+  const [newTaskInputs, setNewTaskInputs] = useState<Record<string, string>>({});
+
+  const toggleExpand = useCallback((projectId: string) => {
+    setExpandedProjects(prev => {
+      const next = new Set(prev);
+      if (next.has(projectId)) {
+        next.delete(projectId);
+      } else {
+        next.add(projectId);
+        // Load tasks if not already loaded
+        if (!projectTasks[projectId]) {
+          setProjectTasks(pt => ({ ...pt, [projectId]: loadProjectTasks(projectId) }));
+        }
+      }
+      return next;
+    });
+  }, [projectTasks]);
+
+  const addTask = useCallback((projectId: string) => {
+    const title = newTaskInputs[projectId]?.trim();
+    if (!title) return;
+    const project = projects.find(p => p.id === projectId);
+    const newTask: Task = {
+      id: String(Date.now()),
+      projectId,
+      title,
+      completed: false,
+      assignee: project?.assignee || '',
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+    setProjectTasks(prev => {
+      const tasks = [...(prev[projectId] || []), newTask];
+      saveProjectTasks(projectId, tasks);
+      return { ...prev, [projectId]: tasks };
+    });
+    setNewTaskInputs(prev => ({ ...prev, [projectId]: '' }));
+    toast.success('Uppgift tillagd');
+  }, [newTaskInputs, projects]);
+
+  const toggleTask = useCallback((projectId: string, taskId: string) => {
+    setProjectTasks(prev => {
+      const tasks = (prev[projectId] || []).map(t => t.id === taskId ? { ...t, completed: !t.completed } : t);
+      saveProjectTasks(projectId, tasks);
+      return { ...prev, [projectId]: tasks };
+    });
+  }, []);
+
+  const deleteTask = useCallback((projectId: string, taskId: string) => {
+    setProjectTasks(prev => {
+      const tasks = (prev[projectId] || []).filter(t => t.id !== taskId);
+      saveProjectTasks(projectId, tasks);
+      return { ...prev, [projectId]: tasks };
+    });
+    toast.success('Uppgift borttagen');
+  }, []);
 
   const totalBudget = projects.reduce((s, p) => s + p.budget, 0);
   const activeCount = projects.filter(p => p.status !== 'done').length;
@@ -593,28 +673,87 @@ export default function Projects() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {filtered.map((project, i) => (
-                    <motion.tr key={project.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }} className="monday-row group">
-                      {visibleColumns.map(key => (
-                        <td key={key} className="px-3 py-2.5 overflow-hidden">
-                          {renderCell(project, key, navigate, updateProject)}
-                        </td>
-                      ))}
-                      <td className="px-2 py-2.5">
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100">
-                              <Trash2 className="h-3 w-3 text-destructive" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader><AlertDialogTitle>Ta bort projekt?</AlertDialogTitle><AlertDialogDescription>Ta bort {project.name}?</AlertDialogDescription></AlertDialogHeader>
-                            <AlertDialogFooter><AlertDialogCancel>Avbryt</AlertDialogCancel><AlertDialogAction className="bg-destructive text-destructive-foreground" onClick={() => handleDelete(project.id)}>Ta bort</AlertDialogAction></AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </td>
-                    </motion.tr>
-                  ))}
+                  {filtered.map((project, i) => {
+                    const isExpanded = expandedProjects.has(project.id);
+                    const tasks = projectTasks[project.id] || [];
+                    const completedCount = tasks.filter(t => t.completed).length;
+                    return (
+                      <React.Fragment key={project.id}>
+                        <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }}
+                          className={`monday-row group ${isExpanded ? 'bg-muted/20' : ''}`}>
+                          {visibleColumns.map((key, ci) => (
+                            <td key={key} className="px-3 py-2.5 overflow-hidden">
+                              {ci === 0 ? (
+                                <div className="flex items-start gap-1.5">
+                                  <button onClick={() => toggleExpand(project.id)} className="mt-1 shrink-0 p-0.5 rounded hover:bg-muted transition-colors">
+                                    {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                                  </button>
+                                  <div className="min-w-0 flex-1">
+                                    {renderCell(project, key, navigate, updateProject)}
+                                    {tasks.length > 0 && !isExpanded && (
+                                      <span className="text-[10px] text-muted-foreground mt-0.5 block">{completedCount}/{tasks.length} uppgifter klara</span>
+                                    )}
+                                  </div>
+                                </div>
+                              ) : (
+                                renderCell(project, key, navigate, updateProject)
+                              )}
+                            </td>
+                          ))}
+                          <td className="px-2 py-2.5">
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100">
+                                  <Trash2 className="h-3 w-3 text-destructive" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader><AlertDialogTitle>Ta bort projekt?</AlertDialogTitle><AlertDialogDescription>Ta bort {project.name}?</AlertDialogDescription></AlertDialogHeader>
+                                <AlertDialogFooter><AlertDialogCancel>Avbryt</AlertDialogCancel><AlertDialogAction className="bg-destructive text-destructive-foreground" onClick={() => handleDelete(project.id)}>Ta bort</AlertDialogAction></AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </td>
+                        </motion.tr>
+                        {/* Subtask rows */}
+                        {isExpanded && (
+                          <>
+                            {tasks.map(task => (
+                              <tr key={task.id} className="bg-muted/10 hover:bg-muted/20 transition-colors group/task">
+                                <td colSpan={Math.ceil(visibleColumns.length / 2)} className="px-3 py-1.5 pl-12">
+                                  <div className="flex items-center gap-2">
+                                    <Checkbox checked={task.completed} onCheckedChange={() => toggleTask(project.id, task.id)} />
+                                    <span className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
+                                  </div>
+                                </td>
+                                <td colSpan={visibleColumns.length - Math.ceil(visibleColumns.length / 2)} className="px-3 py-1.5">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" />{task.assignee || '—'}</span>
+                                    <button onClick={() => deleteTask(project.id, task.id)}
+                                      className="opacity-0 group-hover/task:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/10">
+                                      <Trash2 className="h-3 w-3 text-destructive" />
+                                    </button>
+                                  </div>
+                                </td>
+                                <td></td>
+                              </tr>
+                            ))}
+                            <tr className="bg-muted/10">
+                              <td colSpan={visibleColumns.length + 1} className="px-3 py-1.5 pl-12">
+                                <div className="flex items-center gap-2">
+                                  <Input value={newTaskInputs[project.id] || ''} onChange={e => setNewTaskInputs(prev => ({ ...prev, [project.id]: e.target.value }))}
+                                    placeholder="Lägg till uppgift..." className="h-7 text-sm bg-transparent border-none shadow-none focus-visible:ring-1 flex-1 max-w-sm"
+                                    onKeyDown={e => e.key === 'Enter' && addTask(project.id)} />
+                                  <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => addTask(project.id)}>
+                                    <Plus className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          </>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

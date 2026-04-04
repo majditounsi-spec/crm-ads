@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { useProjects } from '@/hooks/useProjects';
 import { useContacts } from '@/hooks/useContacts';
 import { useGetAccept, type GetAcceptDeal } from '@/hooks/useGetAccept';
 import { useFortnox } from '@/hooks/useFortnox';
+import { useProjects } from '@/hooks/useProjects';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -60,6 +60,7 @@ export default function SalesBoard() {
   const navigate = useNavigate();
   const { deals: gaDeals, config: gaConfig, connect: connectGA, disconnect: disconnectGA, syncDeals, deleteDeal } = useGetAccept();
   const { invoices, config: fnConfig, connect: connectFN, disconnect: disconnectFN, createInvoiceFromDeal, updateInvoiceStatus, isAlreadyInvoiced, totalRevenue, totalOutstanding } = useFortnox();
+  const { projects, addProject } = useProjects();
   const [search, setSearch] = useState('');
   const [view, setView] = useState<'pipeline' | 'invoices' | 'settings'>('pipeline');
   const [gaApiKey, setGaApiKey] = useState('');
@@ -95,6 +96,45 @@ export default function SalesBoard() {
   const handleSendInvoice = (id: string) => {
     updateInvoiceStatus(id, 'sent');
     toast.success('Faktura skickad');
+  };
+
+  const isProjectCreated = (dealId: string) => {
+    return projects.some(p => p.tags.includes(`deal:${dealId}`));
+  };
+
+  const handleCreateProject = async (deal: GetAcceptDeal) => {
+    if (isProjectCreated(deal.id)) {
+      toast.error('Projekt finns redan för denna offert');
+      return;
+    }
+    const deadline = new Date();
+    deadline.setDate(deadline.getDate() + 60);
+    await addProject({
+      name: deal.name,
+      client: deal.company,
+      status: 'pending',
+      priority: deal.value >= 100000 ? 'high' : deal.value >= 50000 ? 'medium' : 'low',
+      deadline: deadline.toISOString().split('T')[0],
+      budget: deal.value,
+      spent: 0,
+      assignee: 'Ej tilldelad',
+      tags: [...deal.tags, `deal:${deal.id}`],
+    });
+    // Save project description from deal to localStorage
+    try {
+      const projectKey = `marketflow_deal_desc_${deal.id}`;
+      localStorage.setItem(projectKey, JSON.stringify({
+        dealName: deal.name,
+        company: deal.company,
+        value: deal.value,
+        recipientName: deal.recipientName,
+        recipientEmail: deal.recipientEmail,
+        signedAt: deal.signedAt,
+        tags: deal.tags,
+      }));
+    } catch {}
+    toast.success(`Projekt "${deal.name}" skapat! Produktionen kan nu börja.`);
+    navigate('/projects');
   };
 
   return (
@@ -231,7 +271,18 @@ export default function SalesBoard() {
 
                             {/* Actions */}
                             {deal.status === 'signed' && (
-                              <div className="mt-2 pt-2 border-t">
+                              <div className="mt-2 pt-2 border-t space-y-1.5">
+                                {/* Create project from deal */}
+                                {isProjectCreated(deal.id) ? (
+                                  <div className="flex items-center gap-1.5 text-xs text-blue-600">
+                                    <Check className="h-3 w-3" /> Projekt skapat till produktion
+                                  </div>
+                                ) : (
+                                  <Button size="sm" variant="default" className="h-7 w-full rounded-lg gap-1.5 text-xs" onClick={() => handleCreateProject(deal)}>
+                                    <FileText className="h-3 w-3" /> Skapa projekt till produktion
+                                  </Button>
+                                )}
+                                {/* Invoice */}
                                 {invoiced ? (
                                   <div className="flex items-center gap-1.5 text-xs text-emerald-600">
                                     <Check className="h-3 w-3" /> Fakturerad via Fortnox
