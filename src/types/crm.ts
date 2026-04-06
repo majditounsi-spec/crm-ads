@@ -11,6 +11,7 @@ export interface Project {
   budget: number;
   spent: number;
   assignee: string;
+  assignees?: string[];
   tags: string[];
   createdAt: string;
 }

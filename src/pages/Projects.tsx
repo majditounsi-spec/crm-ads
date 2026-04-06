@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Filter, Trash2, LayoutGrid, List, Calendar, Users, GripVertical, Clock, Columns3, Eye, EyeOff, ArrowUp, ArrowDown, ChevronRight, ChevronDown, CheckCircle2 } from 'lucide-react';
+import { Plus, Filter, Trash2, LayoutGrid, List, Calendar, Users, GripVertical, Clock, Columns3, Eye, EyeOff, ArrowUp, ArrowDown, ChevronRight, ChevronDown, CheckCircle2, UserPlus, X } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Task } from '@/types/crm';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -28,6 +28,102 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useDroppable } from '@dnd-kit/core';
+
+// ── Avatar helpers (Monday.com style) ──
+const avatarColors = [
+  'bg-blue-500', 'bg-emerald-500', 'bg-violet-500', 'bg-amber-500', 'bg-rose-500',
+  'bg-cyan-500', 'bg-pink-500', 'bg-indigo-500', 'bg-teal-500', 'bg-orange-500', 'bg-fuchsia-500',
+];
+
+function getAvatarColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return avatarColors[Math.abs(hash) % avatarColors.length];
+}
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+
+function getProjectAssignees(project: Project): string[] {
+  if (project.assignees && project.assignees.length > 0) return project.assignees;
+  if (project.assignee && project.assignee !== 'Ej tilldelad') return [project.assignee];
+  return [];
+}
+
+function AvatarCircle({ name, size = 'sm', showTooltip = true }: { name: string; size?: 'sm' | 'md'; showTooltip?: boolean }) {
+  const s = size === 'sm' ? 'h-7 w-7 text-[10px]' : 'h-8 w-8 text-xs';
+  return (
+    <div className={`${s} rounded-full ${getAvatarColor(name)} text-white font-semibold flex items-center justify-center ring-2 ring-card shrink-0 cursor-default`}
+      title={showTooltip ? name : undefined}>
+      {getInitials(name)}
+    </div>
+  );
+}
+
+function AssigneeSelector({ assignees, allMembers, onChange }: { assignees: string[]; allMembers: string[]; onChange: (assignees: string[]) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const toggleMember = (name: string) => {
+    if (assignees.includes(name)) {
+      onChange(assignees.filter(a => a !== name));
+    } else {
+      onChange([...assignees, name]);
+    }
+  };
+
+  return (
+    <div className="relative" ref={ref}>
+      <div className="flex items-center gap-0.5 cursor-pointer" onClick={() => setOpen(!open)}>
+        {assignees.length > 0 ? (
+          <div className="flex -space-x-2">
+            {assignees.slice(0, 4).map(name => (
+              <AvatarCircle key={name} name={name} />
+            ))}
+            {assignees.length > 4 && (
+              <div className="h-7 w-7 rounded-full bg-muted text-muted-foreground text-[10px] font-semibold flex items-center justify-center ring-2 ring-card">
+                +{assignees.length - 4}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="h-7 w-7 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center hover:border-primary/50 transition-colors">
+            <UserPlus className="h-3 w-3 text-muted-foreground/50" />
+          </div>
+        )}
+      </div>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute top-full left-0 mt-1 z-50 bg-popover border rounded-xl shadow-lg p-2 w-56 max-h-64 overflow-y-auto">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 py-1 mb-1">Tilldela personal</p>
+            {allMembers.map(name => {
+              const isSelected = assignees.includes(name);
+              return (
+                <button key={name} onClick={() => toggleMember(name)}
+                  className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-sm transition-colors ${isSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted/60'}`}>
+                  <AvatarCircle name={name} size="sm" showTooltip={false} />
+                  <span className="flex-1 text-left text-xs font-medium truncate">{name}</span>
+                  {isSelected && <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />}
+                </button>
+              );
+            })}
+            {assignees.length > 0 && (
+              <button onClick={() => { onChange([]); setOpen(false); }}
+                className="w-full text-center text-[10px] text-muted-foreground hover:text-destructive mt-1 pt-1 border-t">
+                Rensa alla
+              </button>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 const statusOptions: { value: ProjectStatus; label: string }[] = [
   { value: 'pending', label: 'Väntande' },
@@ -126,6 +222,23 @@ function saveProjectTasks(projectId: string, tasks: Task[]) {
   } catch {}
 }
 
+function RenderAssigneeCell({ project, teamMembers, updateProject }: { project: Project; teamMembers: string[]; updateProject: (id: string, updates: Partial<Project>) => void }) {
+  const assignees = getProjectAssignees(project);
+  return (
+    <AssigneeSelector
+      assignees={assignees}
+      allMembers={teamMembers}
+      onChange={(newAssignees) => {
+        updateProject(project.id, {
+          assignees: newAssignees,
+          assignee: newAssignees[0] || 'Ej tilldelad',
+        });
+        toast.success('Personal uppdaterad');
+      }}
+    />
+  );
+}
+
 function renderCell(project: Project, col: ColumnKey, navigate: (path: string) => void, updateProject: (id: string, updates: Partial<Project>) => void, teamMembers?: string[]) {
   const pct = project.budget > 0 ? Math.round((project.spent / project.budget) * 100) : 0;
   switch (col) {
@@ -161,14 +274,8 @@ function renderCell(project: Project, col: ColumnKey, navigate: (path: string) =
         </Select>
       );
     case 'assignee':
-      return teamMembers && teamMembers.length > 0 ? (
-        <Select value={project.assignee} onValueChange={v => { updateProject(project.id, { assignee: v }); toast.success('Ansvarig uppdaterad'); }}>
-          <SelectTrigger className="h-7 w-full border-none bg-transparent p-0 px-1 shadow-none focus:ring-0 [&>svg]:opacity-0 hover:[&>svg]:opacity-100 text-sm">
-            <SelectValue>{project.assignee}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>{teamMembers.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}</SelectContent>
-        </Select>
-      ) : <span className="text-sm truncate block">{project.assignee}</span>;
+      // Rendered separately via RenderAssigneeCell for state management
+      return null;
     case 'budget':
       return (
         <div className="space-y-1">
@@ -228,7 +335,19 @@ function SortableCard({ project, navigate, onDelete }: { project: Project; navig
             <Progress value={pct} className={`h-1 ${pct > 90 ? '[&>div]:bg-red-500' : ''}`} />
           </div>
           <div className="flex items-center justify-between mt-2.5 pt-2 border-t text-[11px] text-muted-foreground">
-            <div className="flex items-center gap-1"><Users className="h-3 w-3" />{project.assignee}</div>
+            <div className="flex -space-x-1.5">
+              {getProjectAssignees(project).slice(0, 3).map(name => (
+                <div key={name} className={`h-6 w-6 rounded-full ${getAvatarColor(name)} text-white text-[9px] font-semibold flex items-center justify-center ring-2 ring-card`} title={name}>
+                  {getInitials(name)}
+                </div>
+              ))}
+              {getProjectAssignees(project).length > 3 && (
+                <div className="h-6 w-6 rounded-full bg-muted text-muted-foreground text-[9px] font-semibold flex items-center justify-center ring-2 ring-card">
+                  +{getProjectAssignees(project).length - 3}
+                </div>
+              )}
+              {getProjectAssignees(project).length === 0 && <span className="text-muted-foreground">Ej tilldelad</span>}
+            </div>
             <div className="flex items-center gap-1"><Calendar className="h-3 w-3" />{project.deadline}</div>
           </div>
         </div>
@@ -294,7 +413,7 @@ export default function Projects() {
   const [viewMode, setViewMode] = useState<ViewMode>('kanban');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [newProject, setNewProject] = useState({ name: '', client: '', status: 'pending' as ProjectStatus, priority: 'medium' as ProjectPriority, deadline: '', budget: '', assignee: '' });
+  const [newProject, setNewProject] = useState({ name: '', client: '', status: 'pending' as ProjectStatus, priority: 'medium' as ProjectPriority, deadline: '', budget: '', assignee: '', assignees: [] as string[] });
   const [visibleColumns, setVisibleColumns] = useState<ColumnKey[]>(loadColumnConfig);
   const [sortColumn, setSortColumn] = useState<ColumnKey | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -374,7 +493,12 @@ export default function Projects() {
           cmp = (order[a.priority] ?? 9) - (order[b.priority] ?? 9);
           break;
         }
-        case 'assignee': cmp = a.assignee.localeCompare(b.assignee, 'sv'); break;
+        case 'assignee': {
+          const aNames = getProjectAssignees(a).join(', ');
+          const bNames = getProjectAssignees(b).join(', ');
+          cmp = aNames.localeCompare(bNames, 'sv');
+          break;
+        }
         case 'budget': cmp = a.budget - b.budget; break;
         case 'spent': cmp = a.spent - b.spent; break;
         case 'deadline': cmp = new Date(a.deadline).getTime() - new Date(b.deadline).getTime(); break;
@@ -405,10 +529,12 @@ export default function Projects() {
       name: newProject.name, client: newProject.client, status: newProject.status,
       priority: newProject.priority, deadline: newProject.deadline || '2026-05-01',
       budget: Number(newProject.budget) || 0, spent: 0,
-      assignee: newProject.assignee || 'Ej tilldelad', tags: [],
+      assignee: newProject.assignees[0] || newProject.assignee || 'Ej tilldelad',
+      assignees: newProject.assignees.length > 0 ? newProject.assignees : undefined,
+      tags: [],
     });
     setDialogOpen(false);
-    setNewProject({ name: '', client: '', status: 'pending', priority: 'medium', deadline: '', budget: '', assignee: '' });
+    setNewProject({ name: '', client: '', status: 'pending', priority: 'medium', deadline: '', budget: '', assignee: '', assignees: [] });
     toast.success('Projekt skapat!');
   };
 
@@ -642,13 +768,38 @@ export default function Projects() {
               <div className="space-y-4 pt-2">
                 <div><Label className="text-xs">Projektnamn</Label><Input value={newProject.name} onChange={e => setNewProject({...newProject, name: e.target.value})} placeholder="T.ex. SEO Kampanj" className="rounded-lg" /></div>
                 <div><Label className="text-xs">Kund</Label><Input value={newProject.client} onChange={e => setNewProject({...newProject, client: e.target.value})} placeholder="Kundnamn" className="rounded-lg" /></div>
-                <div><Label className="text-xs">Ansvarig</Label>
-                  <Select value={newProject.assignee} onValueChange={v => setNewProject({...newProject, assignee: v})}>
-                    <SelectTrigger className="rounded-lg"><SelectValue placeholder="Välj ansvarig" /></SelectTrigger>
-                    <SelectContent>
-                      {memberNames.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                <div>
+                  <Label className="text-xs">Tilldela personal</Label>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5 min-h-[36px] p-2 border rounded-lg bg-background">
+                    {newProject.assignees.map(name => (
+                      <div key={name} className="flex items-center gap-1 bg-primary/10 text-primary rounded-full pl-1 pr-2 py-0.5">
+                        <AvatarCircle name={name} size="sm" showTooltip={false} />
+                        <span className="text-xs font-medium">{name}</span>
+                        <button onClick={() => setNewProject(p => ({ ...p, assignees: p.assignees.filter(a => a !== name) }))} className="ml-0.5 hover:text-destructive">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                    <Select value="" onValueChange={v => {
+                      if (v && !newProject.assignees.includes(v)) {
+                        setNewProject(p => ({ ...p, assignees: [...p.assignees, v] }));
+                      }
+                    }}>
+                      <SelectTrigger className="h-7 w-auto min-w-[120px] border-none shadow-none text-xs text-muted-foreground gap-1 p-0 px-1">
+                        <UserPlus className="h-3 w-3" /><span>Lägg till...</span>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {memberNames.filter(n => !newProject.assignees.includes(n)).map(name => (
+                          <SelectItem key={name} value={name}>
+                            <div className="flex items-center gap-2">
+                              <div className={`h-5 w-5 rounded-full ${getAvatarColor(name)} text-white text-[8px] font-semibold flex items-center justify-center`}>{getInitials(name)}</div>
+                              {name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div><Label className="text-xs">Status</Label>
@@ -804,7 +955,9 @@ export default function Projects() {
                           className={`monday-row group ${isExpanded ? 'bg-muted/20' : ''}`}>
                           {visibleColumns.map((key, ci) => (
                             <td key={key} className="px-3 py-2.5 overflow-hidden">
-                              {ci === 0 ? (
+                              {key === 'assignee' ? (
+                                <RenderAssigneeCell project={project} teamMembers={memberNames} updateProject={updateProject} />
+                              ) : ci === 0 ? (
                                 <div className="flex items-start gap-1.5">
                                   <button onClick={() => toggleExpand(project.id)} className="mt-1 shrink-0 p-0.5 rounded hover:bg-muted transition-colors">
                                     {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}

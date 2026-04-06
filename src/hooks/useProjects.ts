@@ -144,6 +144,8 @@ export function useProjects() {
     for (const [key, value] of Object.entries(updates)) {
       if (key === 'tags' && Array.isArray(value)) {
         dbUpdates.tags = value.join(',');
+      } else if (key === 'assignees') {
+        // stored in localStorage only (array), skip for DB
       } else if (key === 'createdAt') {
         // skip - managed by DB
       } else {
