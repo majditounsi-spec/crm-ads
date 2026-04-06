@@ -296,6 +296,46 @@ export default function Projects() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [newProject, setNewProject] = useState({ name: '', client: '', status: 'pending' as ProjectStatus, priority: 'medium' as ProjectPriority, deadline: '', budget: '', assignee: '' });
   const [visibleColumns, setVisibleColumns] = useState<ColumnKey[]>(loadColumnConfig);
+  const [sortColumn, setSortColumn] = useState<ColumnKey | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [dragCol, setDragCol] = useState<ColumnKey | null>(null);
+  const [dragOverCol, setDragOverCol] = useState<ColumnKey | null>(null);
+
+  const handleColumnSort = useCallback((key: ColumnKey) => {
+    if (sortColumn === key) {
+      if (sortDirection === 'asc') setSortDirection('desc');
+      else { setSortColumn(null); setSortDirection('asc'); }
+    } else {
+      setSortColumn(key);
+      setSortDirection('asc');
+    }
+  }, [sortColumn, sortDirection]);
+
+  const handleColDragStart = useCallback((key: ColumnKey) => {
+    setDragCol(key);
+  }, []);
+
+  const handleColDragOver = useCallback((e: React.DragEvent, key: ColumnKey) => {
+    e.preventDefault();
+    setDragOverCol(key);
+  }, []);
+
+  const handleColDrop = useCallback((targetKey: ColumnKey) => {
+    if (dragCol && dragCol !== targetKey) {
+      setVisibleColumns(prev => {
+        const next = [...prev];
+        const fromIdx = next.indexOf(dragCol);
+        const toIdx = next.indexOf(targetKey);
+        if (fromIdx < 0 || toIdx < 0) return prev;
+        next.splice(fromIdx, 1);
+        next.splice(toIdx, 0, dragCol);
+        saveColumnConfig(next);
+        return next;
+      });
+    }
+    setDragCol(null);
+    setDragOverCol(null);
+  }, [dragCol]);
 
   const moveColumn = useCallback((key: ColumnKey, direction: 'up' | 'down') => {
     setVisibleColumns(prev => {
@@ -319,7 +359,31 @@ export default function Projects() {
     });
   }, []);
 
-  const filtered = filter === 'all' ? projects : projects.filter(p => p.status === filter);
+  const filteredBase = filter === 'all' ? projects : projects.filter(p => p.status === filter);
+
+  const filtered = useMemo(() => {
+    if (!sortColumn) return filteredBase;
+    return [...filteredBase].sort((a, b) => {
+      let cmp = 0;
+      switch (sortColumn) {
+        case 'name': cmp = a.name.localeCompare(b.name, 'sv'); break;
+        case 'client': cmp = a.client.localeCompare(b.client, 'sv'); break;
+        case 'status': cmp = a.status.localeCompare(b.status); break;
+        case 'priority': {
+          const order = { critical: 0, high: 1, medium: 2, low: 3 };
+          cmp = (order[a.priority] ?? 9) - (order[b.priority] ?? 9);
+          break;
+        }
+        case 'assignee': cmp = a.assignee.localeCompare(b.assignee, 'sv'); break;
+        case 'budget': cmp = a.budget - b.budget; break;
+        case 'spent': cmp = a.spent - b.spent; break;
+        case 'deadline': cmp = new Date(a.deadline).getTime() - new Date(b.deadline).getTime(); break;
+        case 'tags': cmp = a.tags.join(',').localeCompare(b.tags.join(','), 'sv'); break;
+      }
+      return sortDirection === 'desc' ? -cmp : cmp;
+    });
+  }, [filteredBase, sortColumn, sortDirection]);
+
   const activeProject = activeId ? projects.find(p => p.id === activeId) : null;
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -494,15 +558,38 @@ export default function Projects() {
               </PopoverTrigger>
               <PopoverContent className="w-64 p-3" align="end">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Visa & ordna kolumner</p>
+                <p className="text-[10px] text-muted-foreground mb-2">Dra kolumner för att ändra ordning. Klicka ögat för att visa/dölja.</p>
                 <div className="space-y-1">
-                  {allColumns.map(col => {
+                  {/* Show visible columns in order first, then hidden ones */}
+                  {[...visibleColumns.map(k => allColumns.find(c => c.key === k)!), ...allColumns.filter(c => !visibleColumns.includes(c.key))].map(col => {
                     const isVisible = visibleColumns.includes(col.key);
                     const idx = visibleColumns.indexOf(col.key);
                     return (
-                      <div key={col.key} className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors ${isVisible ? 'bg-muted/50' : 'opacity-50'}`}>
+                      <div key={col.key}
+                        draggable={isVisible}
+                        onDragStart={(e) => { e.dataTransfer.setData('text/plain', col.key); }}
+                        onDragOver={(e) => { e.preventDefault(); }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          const fromKey = e.dataTransfer.getData('text/plain') as ColumnKey;
+                          if (fromKey && fromKey !== col.key && isVisible) {
+                            setVisibleColumns(prev => {
+                              const next = [...prev];
+                              const fromIdx = next.indexOf(fromKey);
+                              const toIdx = next.indexOf(col.key);
+                              if (fromIdx < 0 || toIdx < 0) return prev;
+                              next.splice(fromIdx, 1);
+                              next.splice(toIdx, 0, fromKey);
+                              saveColumnConfig(next);
+                              return next;
+                            });
+                          }
+                        }}
+                        className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors ${isVisible ? 'bg-muted/50 cursor-grab active:cursor-grabbing' : 'opacity-50'}`}>
                         <button onClick={() => toggleColumn(col.key)} className="shrink-0">
                           {isVisible ? <Eye className="h-3.5 w-3.5 text-primary" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
                         </button>
+                        {isVisible && <GripVertical className="h-3 w-3 text-muted-foreground/50 shrink-0" />}
                         <span className="flex-1 text-xs font-medium">{col.label}</span>
                         {isVisible && (
                           <div className="flex gap-0.5">
@@ -518,7 +605,7 @@ export default function Projects() {
                     );
                   })}
                 </div>
-                <Button variant="ghost" size="sm" className="w-full mt-2 text-xs h-7" onClick={() => { setVisibleColumns(defaultColumnOrder); saveColumnConfig(defaultColumnOrder); }}>
+                <Button variant="ghost" size="sm" className="w-full mt-2 text-xs h-7" onClick={() => { setVisibleColumns(defaultColumnOrder); saveColumnConfig(defaultColumnOrder); setSortColumn(null); }}>
                   Återställ standard
                 </Button>
               </PopoverContent>
@@ -679,9 +766,27 @@ export default function Projects() {
                   <tr className="border-b bg-muted/30">
                     {visibleColumns.map(key => {
                       const col = allColumns.find(c => c.key === key)!;
+                      const isSorted = sortColumn === key;
+                      const isDragTarget = dragOverCol === key && dragCol !== key;
                       return (
-                        <th key={key} className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2.5">
-                          {col.label}
+                        <th key={key}
+                          draggable
+                          onDragStart={() => handleColDragStart(key)}
+                          onDragOver={(e) => handleColDragOver(e, key)}
+                          onDrop={() => handleColDrop(key)}
+                          onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
+                          onClick={() => handleColumnSort(key)}
+                          className={`text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2.5 cursor-pointer select-none hover:text-foreground hover:bg-muted/50 transition-colors ${isDragTarget ? 'bg-primary/10 border-l-2 border-primary' : ''} ${dragCol === key ? 'opacity-40' : ''}`}
+                        >
+                          <div className="flex items-center gap-1">
+                            <GripVertical className="h-3 w-3 opacity-0 group-hover:opacity-30 cursor-grab shrink-0" />
+                            <span>{col.label}</span>
+                            {isSorted && (
+                              sortDirection === 'asc'
+                                ? <ArrowUp className="h-3 w-3 text-primary shrink-0" />
+                                : <ArrowDown className="h-3 w-3 text-primary shrink-0" />
+                            )}
+                          </div>
                         </th>
                       );
                     })}
