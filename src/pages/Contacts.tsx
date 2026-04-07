@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useContacts } from '@/hooks/useContacts';
 import { Contact, ContactStatus } from '@/types/crm';
 import { Input } from '@/components/ui/input';
@@ -22,11 +22,72 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import {
   Search, Plus, ExternalLink, Star, Globe, Upload, FileText, X, ChevronDown, Trash2, Phone, Mail, Eye, EyeOff,
+  MessageSquare, Send, PlusCircle, Type, Hash, CalendarDays, ListChecks, GripVertical,
 } from 'lucide-react';
+import { useTeamMembers } from '@/hooks/useTeamMembers';
+
+// ── Comments system ──
+interface ContactComment {
+  id: string;
+  contactId: string;
+  author: string;
+  text: string;
+  createdAt: string;
+}
+
+const COMMENTS_KEY = 'marketflow_contact_comments';
+
+function loadComments(): ContactComment[] {
+  try {
+    const stored = localStorage.getItem(COMMENTS_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return [];
+}
+
+function saveComments(comments: ContactComment[]) {
+  try { localStorage.setItem(COMMENTS_KEY, JSON.stringify(comments)); } catch {}
+}
+
+// ── Custom columns system ──
+interface CustomColumn {
+  id: string;
+  label: string;
+  type: 'text' | 'number' | 'date' | 'select';
+  options?: string[]; // for select type
+  width: string;
+}
+
+const CUSTOM_COLS_KEY = 'marketflow_contact_custom_columns';
+const CUSTOM_DATA_KEY = 'marketflow_contact_custom_data';
+
+function loadCustomColumns(): CustomColumn[] {
+  try {
+    const stored = localStorage.getItem(CUSTOM_COLS_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return [];
+}
+
+function saveCustomColumns(cols: CustomColumn[]) {
+  try { localStorage.setItem(CUSTOM_COLS_KEY, JSON.stringify(cols)); } catch {}
+}
+
+function loadCustomData(): Record<string, Record<string, string>> {
+  try {
+    const stored = localStorage.getItem(CUSTOM_DATA_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return {};
+}
+
+function saveCustomData(data: Record<string, Record<string, string>>) {
+  try { localStorage.setItem(CUSTOM_DATA_KEY, JSON.stringify(data)); } catch {}
+}
 
 const SERVICE_OPTIONS = ['SEO', 'WEBB', 'Google ADS', 'META', 'Film/Foto'] as const;
 
-const ALL_COLUMNS = [
+const BUILT_IN_COLUMNS = [
   { key: 'name', label: 'Kund', defaultVisible: true, minWidth: '180px' },
   { key: 'contactPerson', label: 'Kontaktperson', defaultVisible: true, minWidth: '140px' },
   { key: 'phone', label: 'Telefon', defaultVisible: true, minWidth: '130px' },
@@ -37,14 +98,16 @@ const ALL_COLUMNS = [
   { key: 'seller', label: 'Säljare', defaultVisible: true, minWidth: '130px' },
   { key: 'status', label: 'Status', defaultVisible: true, minWidth: '130px' },
   { key: 'rating', label: 'Rating', defaultVisible: true, minWidth: '90px' },
+  { key: 'comments', label: 'Kommentarer', defaultVisible: true, minWidth: '120px' },
   { key: 'startDate', label: 'Startdatum', defaultVisible: false, minWidth: '130px' },
   { key: 'endDate', label: 'Slutdatum', defaultVisible: false, minWidth: '130px' },
   { key: 'website', label: 'Webbplats', defaultVisible: false, minWidth: '160px' },
   { key: 'googleAdsCustomerId', label: 'Google Ads ID', defaultVisible: false, minWidth: '140px' },
-  { key: 'comment', label: 'Kommentar', defaultVisible: false, minWidth: '200px' },
+  { key: 'comment', label: 'Notering', defaultVisible: false, minWidth: '200px' },
 ] as const;
 
-type ColumnKey = (typeof ALL_COLUMNS)[number]['key'];
+type BuiltInColumnKey = (typeof BUILT_IN_COLUMNS)[number]['key'];
+type ColumnKey = BuiltInColumnKey | string; // string allows custom column IDs
 
 function parseServices(service: string): string[] {
   if (!service) return [];
@@ -98,6 +161,7 @@ const inlineInputClass = "border-none bg-transparent shadow-none h-8 px-2 text-s
 
 export default function Contacts() {
   const { contacts, loading, addContact: addContactDb, updateContact, updateField, deleteContact } = useContacts();
+  const { memberNames } = useTeamMembers();
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -105,10 +169,96 @@ export default function Contacts() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(
-    () => new Set(ALL_COLUMNS.filter(c => c.defaultVisible).map(c => c.key))
+    () => new Set(BUILT_IN_COLUMNS.filter(c => c.defaultVisible).map(c => c.key))
   );
   const [sortKey, setSortKey] = useState<ColumnKey>('name');
   const [sortAsc, setSortAsc] = useState(true);
+
+  // Comments
+  const [allComments, setAllComments] = useState<ContactComment[]>(loadComments);
+  const [commentInput, setCommentInput] = useState('');
+  const [commentAuthor, setCommentAuthor] = useState(memberNames[0] || 'Kevin');
+  const [commentContactId, setCommentContactId] = useState<string | null>(null);
+
+  const getContactComments = useCallback((contactId: string) => {
+    return allComments.filter(c => c.contactId === contactId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [allComments]);
+
+  const addComment = useCallback((contactId: string) => {
+    if (!commentInput.trim()) return;
+    const newComment: ContactComment = {
+      id: `cmt-${Date.now()}`,
+      contactId,
+      author: commentAuthor,
+      text: commentInput.trim(),
+      createdAt: new Date().toISOString(),
+    };
+    const updated = [...allComments, newComment];
+    setAllComments(updated);
+    saveComments(updated);
+    setCommentInput('');
+    toast.success('Kommentar tillagd');
+  }, [allComments, commentInput, commentAuthor]);
+
+  const deleteComment = useCallback((commentId: string) => {
+    const updated = allComments.filter(c => c.id !== commentId);
+    setAllComments(updated);
+    saveComments(updated);
+    toast.success('Kommentar borttagen');
+  }, [allComments]);
+
+  // Custom columns
+  const [customColumns, setCustomColumns] = useState<CustomColumn[]>(loadCustomColumns);
+  const [customData, setCustomData] = useState<Record<string, Record<string, string>>>(loadCustomData);
+  const [isAddColumnOpen, setIsAddColumnOpen] = useState(false);
+  const [newColumn, setNewColumn] = useState({ label: '', type: 'text' as CustomColumn['type'], options: '' });
+
+  const addCustomColumn = useCallback(() => {
+    if (!newColumn.label.trim()) { toast.error('Ange ett kolumnnamn'); return; }
+    const col: CustomColumn = {
+      id: `custom_${Date.now()}`,
+      label: newColumn.label.trim(),
+      type: newColumn.type,
+      options: newColumn.type === 'select' ? newColumn.options.split(',').map(o => o.trim()).filter(Boolean) : undefined,
+      width: '140px',
+    };
+    const updated = [...customColumns, col];
+    setCustomColumns(updated);
+    saveCustomColumns(updated);
+    setVisibleColumns(prev => new Set([...prev, col.id]));
+    setIsAddColumnOpen(false);
+    setNewColumn({ label: '', type: 'text', options: '' });
+    toast.success(`Kolumn "${col.label}" skapad`);
+  }, [customColumns, newColumn]);
+
+  const deleteCustomColumn = useCallback((colId: string) => {
+    const updated = customColumns.filter(c => c.id !== colId);
+    setCustomColumns(updated);
+    saveCustomColumns(updated);
+    setVisibleColumns(prev => { const next = new Set(prev); next.delete(colId); return next; });
+    // Clean up data
+    const updatedData = { ...customData };
+    for (const contactId of Object.keys(updatedData)) {
+      delete updatedData[contactId]?.[colId];
+    }
+    setCustomData(updatedData);
+    saveCustomData(updatedData);
+    toast.success('Kolumn borttagen');
+  }, [customColumns, customData]);
+
+  const updateCustomField = useCallback((contactId: string, colId: string, value: string) => {
+    setCustomData(prev => {
+      const next = { ...prev, [contactId]: { ...prev[contactId], [colId]: value } };
+      saveCustomData(next);
+      return next;
+    });
+  }, []);
+
+  // Merge built-in + custom columns for the column picker
+  const ALL_COLUMNS: { key: string; label: string; defaultVisible: boolean; minWidth: string; isCustom?: boolean; customType?: string; customOptions?: string[] }[] = [
+    ...BUILT_IN_COLUMNS.map(c => ({ ...c, key: c.key as string })),
+    ...customColumns.map(c => ({ key: c.id, label: c.label, defaultVisible: true, minWidth: c.width, isCustom: true, customType: c.type, customOptions: c.options })),
+  ];
 
   const [newContact, setNewContact] = useState({
     name: '', website: '', platform: '', budget: 0, service: 'SEO',
@@ -209,6 +359,30 @@ export default function Contacts() {
     ));
 
   const activeColumns = ALL_COLUMNS.filter(c => visibleColumns.has(c.key));
+
+  const renderCustomCell = (contact: Contact, col: typeof ALL_COLUMNS[number]) => {
+    const value = customData[contact.id]?.[col.key] || '';
+    if (col.customType === 'select' && col.customOptions) {
+      return (
+        <Select value={value} onValueChange={v => updateCustomField(contact.id, col.key, v)}>
+          <SelectTrigger className="border-none bg-transparent shadow-none h-8 px-2 text-sm hover:bg-muted/50 focus:ring-1 focus:ring-primary/30">
+            <SelectValue placeholder="—" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value=" ">—</SelectItem>
+            {col.customOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      );
+    }
+    if (col.customType === 'number') {
+      return <Input type="number" value={value} placeholder="—" onChange={e => updateCustomField(contact.id, col.key, e.target.value)} className={inlineInputClass} />;
+    }
+    if (col.customType === 'date') {
+      return <Input type="date" value={value} onChange={e => updateCustomField(contact.id, col.key, e.target.value)} className={`${inlineInputClass} text-xs`} />;
+    }
+    return <Input value={value} placeholder="—" onChange={e => updateCustomField(contact.id, col.key, e.target.value)} className={inlineInputClass} />;
+  };
 
   const renderCell = (contact: Contact, colKey: ColumnKey) => {
     switch (colKey) {
@@ -329,8 +503,26 @@ export default function Contacts() {
             onChange={(e) => updateField(contact.id, 'comment', e.target.value)}
             className={inlineInputClass} />
         );
-      default:
+      case 'comments': {
+        const comments = getContactComments(contact.id);
+        return (
+          <button onClick={(e) => { e.stopPropagation(); setCommentContactId(commentContactId === contact.id ? null : contact.id); }}
+            className="flex items-center gap-1.5 px-2 py-1.5 rounded-md hover:bg-muted/50 transition-colors text-sm w-full">
+            <MessageSquare className={`h-3.5 w-3.5 ${comments.length > 0 ? 'text-primary' : 'text-muted-foreground/40'}`} />
+            {comments.length > 0 ? (
+              <span className="text-xs font-medium">{comments.length}</span>
+            ) : (
+              <span className="text-xs text-muted-foreground">+</span>
+            )}
+          </button>
+        );
+      }
+      default: {
+        // Custom column
+        const customCol = ALL_COLUMNS.find(c => c.key === colKey && c.isCustom);
+        if (customCol) return renderCustomCell(contact, customCol);
         return null;
+      }
     }
   };
 
@@ -390,16 +582,41 @@ export default function Contacts() {
               <Eye className="h-3.5 w-3.5" /> Kolumner <ChevronDown className="h-3 w-3 opacity-50" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-52 p-1.5" align="end">
-            <p className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Visa / dölj kolumner</p>
-            {ALL_COLUMNS.map(col => (
+          <PopoverContent className="w-56 p-1.5 max-h-80 overflow-y-auto" align="end">
+            <p className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Standardkolumner</p>
+            {BUILT_IN_COLUMNS.map(col => (
               <label key={col.key} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer text-sm">
-                <Checkbox checked={visibleColumns.has(col.key)} onCheckedChange={() => toggleColumn(col.key)} />
+                <Checkbox checked={visibleColumns.has(col.key)} onCheckedChange={() => toggleColumn(col.key as ColumnKey)} />
                 {col.label}
               </label>
             ))}
+            {customColumns.length > 0 && (
+              <>
+                <div className="border-t my-1" />
+                <p className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Egna kolumner</p>
+                {customColumns.map(col => (
+                  <div key={col.id} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent text-sm group">
+                    <Checkbox checked={visibleColumns.has(col.id)} onCheckedChange={() => toggleColumn(col.id)} />
+                    <span className="flex-1">{col.label}</span>
+                    <Badge variant="secondary" className="text-[9px] h-4">{col.type}</Badge>
+                    <button onClick={() => deleteCustomColumn(col.id)} className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-destructive/10 hover:text-destructive transition-all">
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </>
+            )}
+            <div className="border-t my-1" />
+            <Button variant="ghost" size="sm" className="w-full text-xs h-7 gap-1.5 justify-start" onClick={() => setIsAddColumnOpen(true)}>
+              <PlusCircle className="h-3.5 w-3.5" /> Lägg till egen kolumn
+            </Button>
           </PopoverContent>
         </Popover>
+
+        {/* Add custom column button */}
+        <Button variant="outline" size="sm" className="rounded-xl gap-1.5" onClick={() => setIsAddColumnOpen(true)}>
+          <PlusCircle className="h-3.5 w-3.5" /> Nytt fält
+        </Button>
 
         <span className="text-xs text-muted-foreground ml-auto">{filtered.length} resultat</span>
       </div>
@@ -427,40 +644,103 @@ export default function Contacts() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((contact, i) => (
-                <motion.tr key={contact.id}
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.015 }}
-                  className="border-b border-border/50 hover:bg-muted/30 transition-colors group"
-                >
-                  {activeColumns.map(col => (
-                    <td key={col.key} className="px-2 py-1" onClick={(e) => { if (col.key !== 'name') e.stopPropagation(); }}>
-                      {renderCell(contact, col.key)}
-                    </td>
-                  ))}
-                  <td className="px-2 py-1">
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <button className="p-1.5 rounded-md opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-all">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Ta bort {contact.name}?</AlertDialogTitle>
-                          <AlertDialogDescription>Detta kan inte ångras.</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Avbryt</AlertDialogCancel>
-                          <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            onClick={() => deleteContact(contact.id)}>Ta bort</AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </td>
-                </motion.tr>
-              ))}
+              {filtered.map((contact, i) => {
+                const isCommentOpen = commentContactId === contact.id;
+                const comments = getContactComments(contact.id);
+                return (
+                  <React.Fragment key={contact.id}>
+                    <motion.tr
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.015 }}
+                      className={`border-b border-border/50 hover:bg-muted/30 transition-colors group ${isCommentOpen ? 'bg-muted/20' : ''}`}
+                    >
+                      {activeColumns.map(col => (
+                        <td key={col.key} className="px-2 py-1" onClick={(e) => { if (col.key !== 'name') e.stopPropagation(); }}>
+                          {renderCell(contact, col.key)}
+                        </td>
+                      ))}
+                      <td className="px-2 py-1">
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <button className="p-1.5 rounded-md opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-all">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Ta bort {contact.name}?</AlertDialogTitle>
+                              <AlertDialogDescription>Detta kan inte ångras.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                              <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                onClick={() => deleteContact(contact.id)}>Ta bort</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </td>
+                    </motion.tr>
+                    {/* Comment thread row */}
+                    {isCommentOpen && (
+                      <tr className="bg-muted/10">
+                        <td colSpan={activeColumns.length + 1} className="px-4 py-3">
+                          <div className="max-w-xl space-y-3">
+                            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                              <MessageSquare className="h-3.5 w-3.5" />
+                              Kommentarer för {contact.name} ({comments.length})
+                            </div>
+                            {/* Comment list */}
+                            {comments.length > 0 ? (
+                              <div className="space-y-2 max-h-48 overflow-y-auto">
+                                {comments.map(cmt => (
+                                  <div key={cmt.id} className="flex gap-2.5 group/cmt">
+                                    <div className="h-7 w-7 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                                      {cmt.author.slice(0, 2).toUpperCase()}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs font-semibold">{cmt.author}</span>
+                                        <span className="text-[10px] text-muted-foreground">
+                                          {new Date(cmt.createdAt).toLocaleDateString('sv-SE')} {new Date(cmt.createdAt).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                        <button onClick={() => deleteComment(cmt.id)} className="opacity-0 group-hover/cmt:opacity-100 transition-opacity p-0.5 rounded hover:bg-destructive/10">
+                                          <X className="h-3 w-3 text-destructive" />
+                                        </button>
+                                      </div>
+                                      <p className="text-sm text-foreground mt-0.5">{cmt.text}</p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">Inga kommentarer ännu</p>
+                            )}
+                            {/* Add comment form */}
+                            <div className="flex gap-2 items-end">
+                              <Select value={commentAuthor} onValueChange={setCommentAuthor}>
+                                <SelectTrigger className="w-28 h-8 text-xs rounded-lg shrink-0">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {memberNames.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                              <Input value={commentInput} onChange={e => setCommentInput(e.target.value)}
+                                placeholder="Skriv en kommentar..."
+                                className="text-sm h-8 rounded-lg flex-1"
+                                onKeyDown={e => { if (e.key === 'Enter') addComment(contact.id); }} />
+                              <Button size="sm" className="h-8 rounded-lg gap-1 shrink-0" onClick={() => addComment(contact.id)} disabled={!commentInput.trim()}>
+                                <Send className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </tbody>
           </table>
           {filtered.length === 0 && (
@@ -735,6 +1015,53 @@ export default function Contacts() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddOpen(false)}>Avbryt</Button>
             <Button onClick={handleAddContact}>Lägg till</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Custom Column Dialog */}
+      <Dialog open={isAddColumnOpen} onOpenChange={setIsAddColumnOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-heading flex items-center gap-2">
+              <PlusCircle className="h-5 w-5 text-primary" />
+              Skapa eget fält
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Kolumnnamn *</label>
+              <Input value={newColumn.label} onChange={e => setNewColumn({ ...newColumn, label: e.target.value })}
+                placeholder="T.ex. Organisationsnummer" className="rounded-lg" />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Fälttyp</label>
+              <div className="grid grid-cols-2 gap-2 mt-1.5">
+                {([
+                  { type: 'text' as const, label: 'Text', icon: Type },
+                  { type: 'number' as const, label: 'Nummer', icon: Hash },
+                  { type: 'date' as const, label: 'Datum', icon: CalendarDays },
+                  { type: 'select' as const, label: 'Dropdown', icon: ListChecks },
+                ]).map(opt => (
+                  <button key={opt.type} onClick={() => setNewColumn({ ...newColumn, type: opt.type })}
+                    className={`flex items-center gap-2 p-2.5 rounded-lg border text-sm transition-all ${newColumn.type === opt.type ? 'border-primary bg-primary/5 text-primary ring-1 ring-primary/20' : 'hover:bg-muted/50'}`}>
+                    <opt.icon className="h-4 w-4" />
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {newColumn.type === 'select' && (
+              <div>
+                <label className="text-sm font-medium">Alternativ (kommaseparerade)</label>
+                <Input value={newColumn.options} onChange={e => setNewColumn({ ...newColumn, options: e.target.value })}
+                  placeholder="T.ex. Ja, Nej, Kanske" className="rounded-lg" />
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddColumnOpen(false)}>Avbryt</Button>
+            <Button onClick={addCustomColumn}>Skapa kolumn</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
