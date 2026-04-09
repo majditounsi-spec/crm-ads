@@ -11,17 +11,17 @@ export interface TeamMember {
 const STORAGE_KEY = 'marketflow_team_members';
 
 const demoMembers: TeamMember[] = [
-  { id: 'tm-1', email: 'kevin@byrå.se', name: 'Kevin', role: 'member', active: true },
-  { id: 'tm-2', email: 'elin@byrå.se', name: 'Elin', role: 'manager', active: true },
-  { id: 'tm-3', email: 'dan@byrå.se', name: 'Dan', role: 'member', active: true },
-  { id: 'tm-4', email: 'anell@byrå.se', name: 'Anell', role: 'member', active: true },
-  { id: 'tm-5', email: 'hussein@byrå.se', name: 'Hussein', role: 'member', active: true },
-  { id: 'tm-6', email: 'alban@byrå.se', name: 'Alban', role: 'member', active: true },
+  { id: 'tm-1', email: 'alban@byrå.se', name: 'Alban', role: 'member', active: true },
+  { id: 'tm-2', email: 'kevin@byrå.se', name: 'Kevin', role: 'member', active: true },
+  { id: 'tm-3', email: 'roine@byrå.se', name: 'Roine', role: 'manager', active: true },
+  { id: 'tm-4', email: 'therese@byrå.se', name: 'Therese', role: 'member', active: true },
+  { id: 'tm-5', email: 'dan@byrå.se', name: 'Dan', role: 'member', active: true },
+  { id: 'tm-6', email: 'skhodran@byrå.se', name: 'Skhodran', role: 'member', active: true },
   { id: 'tm-7', email: 'jonas@byrå.se', name: 'Jonas', role: 'member', active: true },
-  { id: 'tm-8', email: 'roine@byrå.se', name: 'Roine', role: 'manager', active: true },
-  { id: 'tm-9', email: 'therese@byrå.se', name: 'Therese', role: 'member', active: true },
-  { id: 'tm-10', email: 'shodran@byrå.se', name: 'Shodran', role: 'member', active: true },
-  { id: 'tm-11', email: 'marcus@byrå.se', name: 'Marcus', role: 'member', active: true },
+  { id: 'tm-8', email: 'ulf@byrå.se', name: 'Ulf', role: 'manager', active: true },
+  { id: 'tm-9', email: 'elin@byrå.se', name: 'Elin', role: 'manager', active: true },
+  { id: 'tm-10', email: 'anell@byrå.se', name: 'Anell', role: 'member', active: true },
+  { id: 'tm-11', email: 'hussein@byrå.se', name: 'Hussein', role: 'member', active: true },
 ];
 
 function loadMembers(): TeamMember[] {
