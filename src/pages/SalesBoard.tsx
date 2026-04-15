@@ -19,6 +19,7 @@ import {
   FileText, CreditCard, Check, Send, Eye, RefreshCw, CheckCircle2, XCircle,
   FileSignature, Receipt, Link2, Settings, LayoutGrid, List, Trash2,
   User, Building2, Tag, ArrowRight, Sparkles, PartyPopper, ChevronDown, ChevronRight,
+  Pencil, GripVertical, Save,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
@@ -160,6 +161,9 @@ export default function SalesBoard() {
   const [wonLead, setWonLead] = useState<SalesLead | null>(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
+  const [dragOverStage, setDragOverStage] = useState<LeadStage | null>(null);
+  const [editingLead, setEditingLead] = useState<SalesLead | null>(null);
   const [gaApiKey, setGaApiKey] = useState('');
   const [gaEntityId, setGaEntityId] = useState('');
   const [fnClientId, setFnClientId] = useState('');
@@ -245,6 +249,43 @@ export default function SalesBoard() {
   const isProjectCreated = useCallback((leadId: string) => {
     return projects.some(p => p.tags.includes(`deal:${leadId}`));
   }, [projects]);
+
+  // Drag & drop handlers
+  const handleDragStart = useCallback((e: React.DragEvent, leadId: string) => {
+    setDraggedLeadId(leadId);
+    e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', leadId); } catch {}
+  }, []);
+  const handleDragEnd = useCallback(() => {
+    setDraggedLeadId(null);
+    setDragOverStage(null);
+  }, []);
+  const handleDragOverStage = useCallback((e: React.DragEvent, stage: LeadStage) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverStage(stage);
+  }, []);
+  const handleDropStage = useCallback((e: React.DragEvent, stage: LeadStage) => {
+    e.preventDefault();
+    const id = draggedLeadId || (() => { try { return e.dataTransfer.getData('text/plain'); } catch { return null; } })();
+    if (id) {
+      const lead = leads.find(l => l.id === id);
+      if (lead && lead.stage !== stage) moveLeadToStage(id, stage);
+    }
+    setDraggedLeadId(null);
+    setDragOverStage(null);
+  }, [draggedLeadId, leads, moveLeadToStage]);
+
+  // Edit lead
+  const openEdit = useCallback((lead: SalesLead) => setEditingLead({ ...lead }), []);
+  const saveEditedLead = useCallback(() => {
+    if (!editingLead) return;
+    if (!editingLead.company || !editingLead.title) { toast.error('Fyll i företag och rubrik'); return; }
+    const updated = { ...editingLead, updatedAt: new Date().toISOString().split('T')[0] };
+    setLeads(prev => prev.map(l => l.id === updated.id ? updated : l));
+    setEditingLead(null);
+    toast.success('Lead uppdaterad');
+  }, [editingLead, setLeads]);
 
   const filteredLeads = leads.filter(l => {
     const s = search.toLowerCase();
@@ -350,9 +391,14 @@ export default function SalesBoard() {
                   const stageLeads = filteredLeads.filter(l => l.stage === stage);
                   const stageValue = stageLeads.reduce((s, l) => s + l.value, 0);
                   const cfg = stageConfig[stage];
+                  const isDragOver = dragOverStage === stage;
                   return (
-                    <div key={stage} className="min-w-[270px] w-[270px] sm:min-w-[300px] sm:w-[300px] shrink-0">
-                      <div className="flex items-center justify-between mb-3 px-1">
+                    <div key={stage}
+                      className={`min-w-[270px] w-[270px] sm:min-w-[300px] sm:w-[300px] shrink-0 rounded-xl transition-colors ${isDragOver ? 'bg-primary/5 ring-2 ring-primary/30' : ''}`}
+                      onDragOver={(e) => handleDragOverStage(e, stage)}
+                      onDragLeave={() => setDragOverStage(prev => prev === stage ? null : prev)}
+                      onDrop={(e) => handleDropStage(e, stage)}>
+                      <div className="flex items-center justify-between mb-3 px-1 pt-1">
                         <div className="flex items-center gap-2">
                           <div className={`w-2.5 h-2.5 rounded-full ${cfg.dotColor}`} />
                           <span className="font-heading font-semibold text-sm">{cfg.label}</span>
@@ -360,19 +406,26 @@ export default function SalesBoard() {
                         </div>
                         <span className="text-xs text-muted-foreground font-medium">{(stageValue / 1000).toFixed(0)}k kr</span>
                       </div>
-                      <div className="space-y-2.5 min-h-[80px]">
+                      <div className="space-y-2.5 min-h-[120px] px-1 pb-1">
                         {stageLeads.map((lead, i) => {
                           const StageIcon = cfg.icon;
+                          const isDragging = draggedLeadId === lead.id;
                           return (
-                            <motion.div key={lead.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
-                              className={`bg-card rounded-xl border p-3.5 group hover:shadow-md transition-all relative ${stage === 'won' ? 'ring-1 ring-emerald-500/30 bg-emerald-50/30 dark:bg-emerald-950/10' : ''}`}>
+                            <motion.div key={lead.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: isDragging ? 0.4 : 1, y: 0 }} transition={{ delay: i * 0.03 }}
+                              draggable
+                              onDragStart={(e) => handleDragStart(e as any, lead.id)}
+                              onDragEnd={handleDragEnd}
+                              className={`bg-card rounded-xl border p-3.5 group hover:shadow-md transition-all relative cursor-grab active:cursor-grabbing ${isDragging ? 'opacity-40 scale-95' : ''} ${stage === 'won' ? 'ring-1 ring-emerald-500/30 bg-emerald-50/30 dark:bg-emerald-950/10' : ''}`}>
                               {/* Header */}
                               <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0 flex-1">
-                                  <p className="font-medium text-sm truncate">{lead.title}</p>
-                                  <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                                    <Building2 className="h-3 w-3" />{lead.company}
-                                  </p>
+                                <div className="min-w-0 flex-1 flex items-start gap-1.5">
+                                  <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0 mt-0.5" />
+                                  <div className="min-w-0 flex-1">
+                                    <p className="font-medium text-sm truncate">{lead.title}</p>
+                                    <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                                      <Building2 className="h-3 w-3" />{lead.company}
+                                    </p>
+                                  </div>
                                 </div>
                                 <Badge className={`text-[10px] shrink-0 ${cfg.color}`}>
                                   <StageIcon className="h-3 w-3 mr-1" />{cfg.label}
@@ -430,17 +483,26 @@ export default function SalesBoard() {
                                 )}
                               </div>
 
-                              {/* Delete */}
-                              <Button size="sm" variant="ghost"
-                                className="absolute top-2 right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                                onClick={() => deleteLead(lead.id)}>
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
+                              {/* Edit + Delete */}
+                              <div className="absolute top-2 right-2 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button size="sm" variant="ghost"
+                                  className="h-6 w-6 p-0 text-muted-foreground hover:text-primary"
+                                  onClick={(e) => { e.stopPropagation(); openEdit(lead); }}>
+                                  <Pencil className="h-3 w-3" />
+                                </Button>
+                                <Button size="sm" variant="ghost"
+                                  className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                                  onClick={(e) => { e.stopPropagation(); deleteLead(lead.id); }}>
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
                             </motion.div>
                           );
                         })}
                         {stageLeads.length === 0 && (
-                          <div className="rounded-xl border border-dashed p-6 text-center text-xs text-muted-foreground">Inga leads</div>
+                          <div className={`rounded-xl border border-dashed p-6 text-center text-xs transition-colors ${isDragOver ? 'border-primary/50 text-primary bg-primary/5' : 'text-muted-foreground'}`}>
+                            {isDragOver ? 'Släpp här' : 'Dra hit eller klicka + Ny lead'}
+                          </div>
                         )}
                       </div>
                     </div>
@@ -448,17 +510,32 @@ export default function SalesBoard() {
                 })}
 
                 {/* Lost column */}
-                <div className="min-w-[270px] w-[270px] sm:min-w-[300px] sm:w-[300px] shrink-0 opacity-60">
-                  <div className="flex items-center gap-2 mb-3 px-1">
+                <div
+                  className={`min-w-[270px] w-[270px] sm:min-w-[300px] sm:w-[300px] shrink-0 opacity-80 rounded-xl transition-colors ${dragOverStage === 'lost' ? 'bg-red-500/5 ring-2 ring-red-500/30 opacity-100' : ''}`}
+                  onDragOver={(e) => handleDragOverStage(e, 'lost')}
+                  onDragLeave={() => setDragOverStage(prev => prev === 'lost' ? null : prev)}
+                  onDrop={(e) => handleDropStage(e, 'lost')}>
+                  <div className="flex items-center gap-2 mb-3 px-1 pt-1">
                     <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
                     <span className="font-heading font-semibold text-sm">Förlorade</span>
                     <span className="text-xs text-muted-foreground bg-muted rounded-full px-2 py-0.5">{filteredLeads.filter(l => l.stage === 'lost').length}</span>
                   </div>
-                  <div className="space-y-2.5">
-                    {filteredLeads.filter(l => l.stage === 'lost').map(lead => (
-                      <div key={lead.id} className="bg-card rounded-xl border p-3.5 group relative">
-                        <p className="font-medium text-sm">{lead.title}</p>
-                        <p className="text-xs text-muted-foreground">{lead.company}</p>
+                  <div className="space-y-2.5 min-h-[120px] px-1 pb-1">
+                    {filteredLeads.filter(l => l.stage === 'lost').map(lead => {
+                      const isDragging = draggedLeadId === lead.id;
+                      return (
+                      <div key={lead.id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e as any, lead.id)}
+                        onDragEnd={handleDragEnd}
+                        className={`bg-card rounded-xl border p-3.5 group relative cursor-grab active:cursor-grabbing ${isDragging ? 'opacity-40 scale-95' : ''}`}>
+                        <div className="flex items-start gap-1.5">
+                          <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0 mt-0.5" />
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-sm truncate">{lead.title}</p>
+                            <p className="text-xs text-muted-foreground">{lead.company}</p>
+                          </div>
+                        </div>
                         <div className="mt-2 flex items-center justify-between">
                           <span className="text-sm font-bold">{lead.value.toLocaleString('sv-SE')} kr</span>
                           <Badge className="text-[10px] bg-red-100 text-red-600">Förlorad</Badge>
@@ -468,11 +545,22 @@ export default function SalesBoard() {
                             <ArrowRight className="h-3 w-3" /> Återaktivera
                           </Button>
                         </div>
-                        <Button size="sm" variant="ghost" className="absolute top-2 right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive" onClick={() => deleteLead(lead.id)}>
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
+                        <div className="absolute top-2 right-2 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground hover:text-primary" onClick={(e) => { e.stopPropagation(); openEdit(lead); }}>
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive" onClick={(e) => { e.stopPropagation(); deleteLead(lead.id); }}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
-                    ))}
+                      );
+                    })}
+                    {filteredLeads.filter(l => l.stage === 'lost').length === 0 && (
+                      <div className={`rounded-xl border border-dashed p-6 text-center text-xs transition-colors ${dragOverStage === 'lost' ? 'border-red-500/50 text-red-600 bg-red-500/5' : 'text-muted-foreground'}`}>
+                        {dragOverStage === 'lost' ? 'Släpp här' : 'Inga förlorade'}
+                      </div>
+                    )}
                   </div>
                 </div>
               </motion.div>
@@ -569,6 +657,9 @@ export default function SalesBoard() {
                                       <Sparkles className="h-3 w-3" /> Vunnen
                                     </Button>
                                   )}
+                                  <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground hover:text-primary" onClick={() => openEdit(lead)}>
+                                    <Pencil className="h-3 w-3" />
+                                  </Button>
                                   <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive" onClick={() => deleteLead(lead.id)}>
                                     <Trash2 className="h-3 w-3" />
                                   </Button>
@@ -754,6 +845,100 @@ export default function SalesBoard() {
             <div><Label className="text-xs">Anteckningar</Label><Textarea value={newLead.notes} onChange={e => setNewLead({...newLead, notes: e.target.value})} rows={2} placeholder="Eventuella anteckningar..." className="rounded-lg" /></div>
             <Button onClick={addLead} className="w-full rounded-lg gap-1.5"><Plus className="h-4 w-4" />Skapa lead</Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Lead Dialog */}
+      <Dialog open={!!editingLead} onOpenChange={(open) => { if (!open) setEditingLead(null); }}>
+        <DialogContent className="max-w-lg rounded-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-heading flex items-center gap-2">
+              <Pencil className="h-4 w-4" /> Redigera lead
+            </DialogTitle>
+          </DialogHeader>
+          {editingLead && (
+            <div className="space-y-4 pt-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Företag *</Label>
+                  <Input value={editingLead.company} onChange={e => setEditingLead({ ...editingLead, company: e.target.value })} className="rounded-lg" />
+                </div>
+                <div>
+                  <Label className="text-xs">Rubrik *</Label>
+                  <Input value={editingLead.title} onChange={e => setEditingLead({ ...editingLead, title: e.target.value })} className="rounded-lg" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Kontaktperson</Label>
+                  <Input value={editingLead.contactName} onChange={e => setEditingLead({ ...editingLead, contactName: e.target.value })} className="rounded-lg" />
+                </div>
+                <div>
+                  <Label className="text-xs">Värde (kr)</Label>
+                  <Input type="number" value={editingLead.value} onChange={e => setEditingLead({ ...editingLead, value: Number(e.target.value) || 0 })} className="rounded-lg" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">E-post</Label>
+                  <Input value={editingLead.contactEmail} onChange={e => setEditingLead({ ...editingLead, contactEmail: e.target.value })} className="rounded-lg" />
+                </div>
+                <div>
+                  <Label className="text-xs">Telefon</Label>
+                  <Input value={editingLead.contactPhone} onChange={e => setEditingLead({ ...editingLead, contactPhone: e.target.value })} className="rounded-lg" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Steg</Label>
+                  <Select value={editingLead.stage} onValueChange={(v) => setEditingLead({ ...editingLead, stage: v as LeadStage })}>
+                    <SelectTrigger className="rounded-lg"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {[...stageOrder, 'lost' as LeadStage].map(s => (
+                        <SelectItem key={s} value={s}>
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${stageConfig[s].dotColor}`} />
+                            {stageConfig[s].label}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Ansvarig säljare</Label>
+                  <Select value={editingLead.assignee} onValueChange={(v) => setEditingLead({ ...editingLead, assignee: v })}>
+                    <SelectTrigger className="rounded-lg"><SelectValue placeholder="Välj säljare" /></SelectTrigger>
+                    <SelectContent>{memberNames.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs">Källa</Label>
+                <Input value={editingLead.source} onChange={e => setEditingLead({ ...editingLead, source: e.target.value })} placeholder="Hemsida, LinkedIn..." className="rounded-lg" />
+              </div>
+              <div>
+                <Label className="text-xs">Taggar (kommaseparerade)</Label>
+                <Input
+                  value={editingLead.tags.join(', ')}
+                  onChange={e => setEditingLead({ ...editingLead, tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean) })}
+                  className="rounded-lg" />
+              </div>
+              <div>
+                <Label className="text-xs">Anteckningar</Label>
+                <Textarea value={editingLead.notes} onChange={e => setEditingLead({ ...editingLead, notes: e.target.value })} rows={3} className="rounded-lg" />
+              </div>
+              <DialogFooter className="gap-2 sm:gap-2">
+                <Button variant="outline" onClick={() => setEditingLead(null)} className="rounded-lg">Avbryt</Button>
+                <Button variant="destructive" onClick={() => { deleteLead(editingLead.id); setEditingLead(null); }} className="rounded-lg gap-1.5">
+                  <Trash2 className="h-4 w-4" /> Ta bort
+                </Button>
+                <Button onClick={saveEditedLead} className="rounded-lg gap-1.5">
+                  <Save className="h-4 w-4" /> Spara
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </motion.div>
