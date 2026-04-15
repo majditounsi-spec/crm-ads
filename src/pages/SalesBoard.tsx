@@ -222,22 +222,63 @@ export default function SalesBoard() {
       setWonLead(updatedLead);
       setShowConfetti(true);
 
-      // Auto-create project
+      // Auto-create project with full brief from the won deal
       const deadline = new Date();
       deadline.setDate(deadline.getDate() + 60);
       const alreadyCreated = projects.some(p => p.tags.includes(`deal:${id}`));
       if (!alreadyCreated) {
-        addProject({
-          name: updatedLead.title,
-          client: updatedLead.company,
-          status: 'pending',
-          priority: updatedLead.value >= 100000 ? 'high' : updatedLead.value >= 50000 ? 'medium' : 'low',
-          deadline: deadline.toISOString().split('T')[0],
-          budget: updatedLead.value,
-          spent: 0,
-          assignee: updatedLead.assignee || 'Ej tilldelad',
-          tags: [...updatedLead.tags, `deal:${id}`],
-        });
+        (async () => {
+          const created = await addProject({
+            name: updatedLead.title,
+            client: updatedLead.company,
+            status: 'pending',
+            priority: updatedLead.value >= 100000 ? 'high' : updatedLead.value >= 50000 ? 'medium' : 'low',
+            deadline: deadline.toISOString().split('T')[0],
+            budget: updatedLead.value,
+            spent: 0,
+            assignee: updatedLead.assignee || 'Ej tilldelad',
+            tags: [...updatedLead.tags, `deal:${id}`],
+            // Full brief for production team
+            description: updatedLead.notes || '',
+            contactName: updatedLead.contactName,
+            contactEmail: updatedLead.contactEmail,
+            contactPhone: updatedLead.contactPhone,
+            leadSource: updatedLead.source,
+            dealId: id,
+            salesperson: updatedLead.assignee,
+          });
+
+          // Seed starter tasks based on services in tags
+          if (created?.id) {
+            const today = new Date().toISOString().split('T')[0];
+            const serviceTags = updatedLead.tags.filter(t => !t.startsWith('deal:'));
+            const baseTasks: { title: string; assignee: string }[] = [
+              { title: '📞 Onboarding-möte med kund', assignee: updatedLead.assignee || 'Ej tilldelad' },
+              { title: '📂 Samla in material, tillgångar & accesser', assignee: updatedLead.assignee || 'Ej tilldelad' },
+              { title: '🗓️ Skapa tidsplan & milstolpar', assignee: updatedLead.assignee || 'Ej tilldelad' },
+              { title: '🚀 Kickoff-möte med produktionsteamet', assignee: updatedLead.assignee || 'Ej tilldelad' },
+            ];
+            const serviceTasks: { title: string; assignee: string }[] = serviceTags.map(s => ({
+              title: `🎯 Starta upp tjänst: ${s}`,
+              assignee: updatedLead.assignee || 'Ej tilldelad',
+            }));
+            const followUp: { title: string; assignee: string }[] = [
+              { title: '💳 Skapa första fakturan (Fortnox)', assignee: updatedLead.assignee || 'Ej tilldelad' },
+              { title: '✅ Första leveranscheck med kund', assignee: updatedLead.assignee || 'Ej tilldelad' },
+            ];
+            const starterTasks = [...baseTasks, ...serviceTasks, ...followUp].map((t, idx) => ({
+              id: `task-${created.id}-${Date.now()}-${idx}`,
+              projectId: created.id,
+              title: t.title,
+              completed: false,
+              assignee: t.assignee,
+              createdAt: today,
+            }));
+            try {
+              localStorage.setItem(`marketflow_tasks_${created.id}`, JSON.stringify(starterTasks));
+            } catch {}
+          }
+        })();
       }
       return;
     }
@@ -307,7 +348,7 @@ export default function SalesBoard() {
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-5">
       {/* Confetti overlay */}
       <AnimatePresence>
-        {showConfetti && <ConfettiExplosion onDone={() => { setShowConfetti(false); if (wonLead) { toast.success(`Projekt "${wonLead.title}" skapat till produktion!`); setWonLead(null); } }} />}
+        {showConfetti && <ConfettiExplosion onDone={() => { setShowConfetti(false); if (wonLead) { toast.success(`Projekt "${wonLead.title}" skapat med full brief & starter-tasks till produktion!`, { duration: 5000 }); setWonLead(null); } }} />}
       </AnimatePresence>
 
       {/* Header */}

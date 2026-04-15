@@ -130,7 +130,19 @@ export function useProjects() {
       setProjects(prev => [newProject, ...prev]);
       return newProject;
     }
-    const newProject = dbToProject(data as unknown as DbProject);
+    const dbProject = dbToProject(data as unknown as DbProject);
+    // Merge extra lead-brief fields (not stored in DB) back into the project
+    const newProject: Project = {
+      ...dbProject,
+      description: project.description,
+      contactName: project.contactName,
+      contactEmail: project.contactEmail,
+      contactPhone: project.contactPhone,
+      leadSource: project.leadSource,
+      dealId: project.dealId,
+      salesperson: project.salesperson,
+      assignees: project.assignees,
+    };
     setProjects(prev => [newProject, ...prev]);
     return newProject;
   }, [setProjects]);
@@ -146,6 +158,9 @@ export function useProjects() {
         dbUpdates.tags = value.join(',');
       } else if (key === 'assignees') {
         // stored in localStorage only (array), skip for DB
+      } else if (key === 'description' || key === 'contactName' || key === 'contactEmail' ||
+                 key === 'contactPhone' || key === 'leadSource' || key === 'dealId' || key === 'salesperson') {
+        // lead-brief fields stored in localStorage only, skip for DB
       } else if (key === 'createdAt') {
         // skip - managed by DB
       } else {

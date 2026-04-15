@@ -14,6 +14,14 @@ export interface Project {
   assignees?: string[];
   tags: string[];
   createdAt: string;
+  // Optional brief info inherited from a won sales lead
+  description?: string;
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  leadSource?: string;
+  dealId?: string;
+  salesperson?: string;
 }
 
 export interface Task {

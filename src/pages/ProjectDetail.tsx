@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Clock, User, ListTodo, CalendarDays, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, Clock, User, ListTodo, CalendarDays, Trash2, Mail, Phone, Building2, FileText, Target, Tag, Copy } from 'lucide-react';
 import { mockTimeEntries, mockTasks } from '@/data/mockData';
 import { useProjects } from '@/hooks/useProjects';
 import { ProjectStatus, TimeEntry, Task } from '@/types/crm';
@@ -206,6 +206,85 @@ export default function ProjectDetail() {
           <p className="text-xs text-muted-foreground mt-1">Deadline: {project.deadline}</p>
         </motion.div>
       </div>
+
+      {/* Sales Brief (from won deal) */}
+      {(project.description || project.contactName || project.contactEmail || project.contactPhone || project.leadSource || project.salesperson) && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}
+          className="bg-gradient-to-br from-emerald-50/60 to-transparent dark:from-emerald-950/20 rounded-xl border border-emerald-200/60 dark:border-emerald-900/40 shadow-sm overflow-hidden">
+          <div className="px-5 py-3 border-b border-emerald-200/60 dark:border-emerald-900/40 bg-emerald-50/60 dark:bg-emerald-950/30 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              <span className="font-heading font-semibold text-sm">Säljbrief</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 font-medium uppercase">Vunnen deal</span>
+            </div>
+            {project.dealId && <span className="text-[10px] text-muted-foreground font-mono">#{project.dealId}</span>}
+          </div>
+          <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* Kontakt */}
+            <div className="space-y-2">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Kundkontakt</p>
+              <div className="space-y-1.5 text-sm">
+                {project.contactName && (
+                  <div className="flex items-center gap-2"><User className="h-3.5 w-3.5 text-muted-foreground" />{project.contactName}</div>
+                )}
+                {project.contactEmail && (
+                  <a href={`mailto:${project.contactEmail}`} className="flex items-center gap-2 hover:text-primary transition-colors">
+                    <Mail className="h-3.5 w-3.5 text-muted-foreground" />{project.contactEmail}
+                  </a>
+                )}
+                {project.contactPhone && (
+                  <a href={`tel:${project.contactPhone.replace(/\s/g, '')}`} className="flex items-center gap-2 hover:text-primary transition-colors">
+                    <Phone className="h-3.5 w-3.5 text-muted-foreground" />{project.contactPhone}
+                  </a>
+                )}
+                {project.client && (
+                  <div className="flex items-center gap-2"><Building2 className="h-3.5 w-3.5 text-muted-foreground" />{project.client}</div>
+                )}
+              </div>
+            </div>
+            {/* Deal info */}
+            <div className="space-y-2">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Affärsinfo</p>
+              <div className="space-y-1.5 text-sm">
+                {project.salesperson && (
+                  <div className="flex items-center gap-2">
+                    <Target className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-muted-foreground">Säljare:</span> {project.salesperson}
+                  </div>
+                )}
+                {project.leadSource && (
+                  <div className="flex items-center gap-2">
+                    <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-muted-foreground">Källa:</span> {project.leadSource}
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-muted-foreground">Skapad:</span> {project.createdAt}
+                </div>
+                {project.tags.filter(t => !t.startsWith('deal:')).length > 0 && (
+                  <div className="flex items-start gap-2 flex-wrap pt-1">
+                    {project.tags.filter(t => !t.startsWith('deal:')).map(t => (
+                      <span key={t} className="text-[10px] px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground font-medium">{t}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            {/* Anteckningar */}
+            <div className="space-y-2">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Anteckningar från sälj</p>
+              {project.description ? (
+                <p className="text-sm whitespace-pre-wrap text-foreground/80 bg-card rounded-lg border p-3 max-h-32 overflow-y-auto">
+                  {project.description}
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">Inga anteckningar från säljet.</p>
+              )}
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Tasks */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-card rounded-xl border shadow-sm overflow-hidden">
