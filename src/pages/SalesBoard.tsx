@@ -2,7 +2,9 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useGetAccept, type GetAcceptDeal } from '@/hooks/useGetAccept';
 import { useFortnox } from '@/hooks/useFortnox';
 import { useProjects } from '@/hooks/useProjects';
+import { useContacts } from '@/hooks/useContacts';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
+import type { Contact } from '@/types/crm';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -171,7 +173,23 @@ export default function SalesBoard() {
   const { deals: gaDeals, config: gaConfig, connect: connectGA, disconnect: disconnectGA, syncDeals, addDeal, updateDealStatus } = useGetAccept();
   const { invoices, config: fnConfig, connect: connectFN, disconnect: disconnectFN, createInvoiceFromDeal, updateInvoiceStatus, isAlreadyInvoiced, totalRevenue, totalOutstanding } = useFortnox();
   const { projects, addProject } = useProjects();
+  const { contacts, addContact, updateField: updateContactField } = useContacts();
   const { memberNames } = useTeamMembers();
+
+  // Helper: find contact matching a company name (case-insensitive, trimmed)
+  const findContactByCompany = useCallback((company: string): Contact | undefined => {
+    const needle = (company || '').trim().toLowerCase();
+    if (!needle) return undefined;
+    return contacts.find(c => (c.name || '').trim().toLowerCase() === needle);
+  }, [contacts]);
+
+  // Apply contact data to lead fields (used by both Add & Edit dialogs)
+  const contactToLeadFields = useCallback((contact: Contact) => ({
+    contactName: contact.contactPerson || '',
+    contactPhone: contact.phone || '',
+    contactEmail: (contact.emails && contact.emails[0]) || '',
+    assignee: contact.seller || '',
+  }), []);
 
   const [leads, setLeadsState] = useState<SalesLead[]>(loadLeads);
   const [search, setSearch] = useState('');
@@ -212,27 +230,53 @@ export default function SalesBoard() {
     if (!newLead.company || !newLead.title) { toast.error('Fyll i företag och rubrik'); return; }
     const cleanServices = (newLead.services || []).filter(s => s.name && Number(s.budget) > 0);
     const totalValue = cleanServices.reduce((sum, s) => sum + (Number(s.budget) || 0), 0);
+    const assignee = newLead.assignee || memberNames[0] || '';
     const lead: SalesLead = {
       id: `sl-${Date.now()}`,
       company: newLead.company, contactName: newLead.contactName,
       contactEmail: newLead.contactEmail, contactPhone: newLead.contactPhone,
       title: newLead.title, value: totalValue,
       services: cleanServices.length > 0 ? cleanServices : undefined,
-      stage: 'lead', assignee: newLead.assignee || memberNames[0] || '',
+      stage: 'lead', assignee,
       tags: newLead.tags ? newLead.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
       notes: newLead.notes, source: newLead.source,
       createdAt: new Date().toISOString().split('T')[0],
       updatedAt: new Date().toISOString().split('T')[0],
     };
     setLeads(prev => [lead, ...prev]);
+
+    // Auto-create a new contact if the company doesn't exist
+    const existingContact = findContactByCompany(newLead.company);
+    if (!existingContact) {
+      const serviceSummary = cleanServices.map(s => s.name).join(', ');
+      addContact({
+        name: newLead.company,
+        website: '',
+        platform: '',
+        budget: Math.round(totalValue / 1000), // budget stored in k kr
+        rating: 1,
+        contactPerson: newLead.contactName,
+        seller: assignee,
+        service: serviceSummary || 'Lead',
+        status: 'pending',
+        startDate: '',
+        endDate: '',
+        comment: `Skapad automatiskt från säljlead: ${newLead.title}`,
+        hasReport: false,
+        phone: newLead.contactPhone,
+        emails: newLead.contactEmail ? [newLead.contactEmail] : [],
+        googleAdsCustomerId: '',
+      });
+    }
+
     setIsAddOpen(false);
     setNewLead({
       company: '', contactName: '', contactEmail: '', contactPhone: '',
       title: '', assignee: '', tags: '', notes: '', source: '',
       services: [{ id: newServiceId(), name: 'Google Ads', budget: 0 }],
     });
-    toast.success(`Lead "${lead.title}" skapad${cleanServices.length > 1 ? ` med ${cleanServices.length} tjänster` : ''}`);
-  }, [newLead, memberNames, setLeads]);
+    toast.success(`Lead "${lead.title}" skapad${cleanServices.length > 1 ? ` med ${cleanServices.length} tjänster` : ''}${!existingContact ? ' · ny kund skapad' : ''}`);
+  }, [newLead, memberNames, setLeads, findContactByCompany, addContact]);
 
   const deleteLead = useCallback((id: string) => {
     setLeads(prev => prev.filter(l => l.id !== id));
@@ -253,6 +297,51 @@ export default function SalesBoard() {
       setLeads(prev => prev.map(l => l.id === id ? updatedLead : l));
       setWonLead(updatedLead);
       setShowConfetti(true);
+
+      // Sync to contacts: create if missing, otherwise upgrade to active and set purchased services
+      const servicesForContact: LeadService[] = (updatedLead.services && updatedLead.services.length > 0)
+        ? updatedLead.services
+        : [{ id: 'srv-default', name: updatedLead.title, budget: updatedLead.value }];
+      const serviceSummary = servicesForContact.map(s => s.name).join(', ');
+      const existingContact = findContactByCompany(updatedLead.company);
+      const today = new Date().toISOString().split('T')[0];
+      if (existingContact) {
+        updateContactField(existingContact.id, 'status', 'active');
+        updateContactField(existingContact.id, 'service', serviceSummary);
+        if (!existingContact.startDate) updateContactField(existingContact.id, 'startDate', today);
+        updateContactField(existingContact.id, 'budget', Math.round(updatedLead.value / 1000));
+        if (updatedLead.contactName && !existingContact.contactPerson) {
+          updateContactField(existingContact.id, 'contactPerson', updatedLead.contactName);
+        }
+        if (updatedLead.contactPhone && !existingContact.phone) {
+          updateContactField(existingContact.id, 'phone', updatedLead.contactPhone);
+        }
+        if (updatedLead.contactEmail && (!existingContact.emails || existingContact.emails.length === 0)) {
+          updateContactField(existingContact.id, 'emails', [updatedLead.contactEmail]);
+        }
+        if (updatedLead.assignee && !existingContact.seller) {
+          updateContactField(existingContact.id, 'seller', updatedLead.assignee);
+        }
+      } else {
+        addContact({
+          name: updatedLead.company,
+          website: '',
+          platform: '',
+          budget: Math.round(updatedLead.value / 1000),
+          rating: 1,
+          contactPerson: updatedLead.contactName,
+          seller: updatedLead.assignee,
+          service: serviceSummary,
+          status: 'active',
+          startDate: today,
+          endDate: '',
+          comment: `Vunnen affär: ${updatedLead.title}`,
+          hasReport: false,
+          phone: updatedLead.contactPhone,
+          emails: updatedLead.contactEmail ? [updatedLead.contactEmail] : [],
+          googleAdsCustomerId: '',
+        });
+      }
 
       // Auto-create one project per service from the won deal
       const deadline = new Date();
@@ -322,7 +411,7 @@ export default function SalesBoard() {
 
     setLeads(prev => prev.map(l => l.id === id ? { ...l, stage: newStage, updatedAt: new Date().toISOString().split('T')[0] } : l));
     toast.success(`Flyttad till ${stageConfig[newStage].label}`);
-  }, [leads, setLeads, projects, addProject]);
+  }, [leads, setLeads, projects, addProject, findContactByCompany, addContact, updateContactField]);
 
   const isProjectCreated = useCallback((leadId: string) => {
     return projects.some(p => p.tags.includes(`deal:${leadId}`));
@@ -370,9 +459,36 @@ export default function SalesBoard() {
       updatedAt: new Date().toISOString().split('T')[0],
     };
     setLeads(prev => prev.map(l => l.id === updated.id ? updated : l));
+
+    // If the company doesn't exist yet in contacts, create a pending contact
+    const existingContact = findContactByCompany(updated.company);
+    let contactCreated = false;
+    if (!existingContact) {
+      const serviceSummary = cleanServices.map(s => s.name).join(', ');
+      addContact({
+        name: updated.company,
+        website: '',
+        platform: '',
+        budget: Math.round(totalValue / 1000),
+        rating: 1,
+        contactPerson: updated.contactName,
+        seller: updated.assignee,
+        service: serviceSummary || 'Lead',
+        status: updated.stage === 'won' ? 'active' : 'pending',
+        startDate: updated.stage === 'won' ? new Date().toISOString().split('T')[0] : '',
+        endDate: '',
+        comment: `Skapad från säljlead: ${updated.title}`,
+        hasReport: false,
+        phone: updated.contactPhone,
+        emails: updated.contactEmail ? [updated.contactEmail] : [],
+        googleAdsCustomerId: '',
+      });
+      contactCreated = true;
+    }
+
     setEditingLead(null);
-    toast.success('Lead uppdaterad');
-  }, [editingLead, setLeads]);
+    toast.success(`Lead uppdaterad${contactCreated ? ' · ny kund skapad' : ''}`);
+  }, [editingLead, setLeads, findContactByCompany, addContact]);
 
   const filteredLeads = leads.filter(l => {
     const s = search.toLowerCase();
@@ -945,7 +1061,38 @@ export default function SalesBoard() {
           <DialogHeader><DialogTitle className="font-heading">Ny säljlead</DialogTitle></DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="grid grid-cols-2 gap-3">
-              <div><Label className="text-xs">Företag *</Label><Input value={newLead.company} onChange={e => setNewLead({...newLead, company: e.target.value})} placeholder="Företagsnamn" className="rounded-lg" /></div>
+              <div>
+                <Label className="text-xs">Företag *</Label>
+                <Input
+                  value={newLead.company}
+                  list="contacts-companies-list"
+                  onChange={e => {
+                    const v = e.target.value;
+                    const match = findContactByCompany(v);
+                    if (match) {
+                      const fields = contactToLeadFields(match);
+                      setNewLead({
+                        ...newLead,
+                        company: v,
+                        contactName: fields.contactName || newLead.contactName,
+                        contactPhone: fields.contactPhone || newLead.contactPhone,
+                        contactEmail: fields.contactEmail || newLead.contactEmail,
+                        assignee: fields.assignee || newLead.assignee,
+                      });
+                      toast.success(`Hämtade uppgifter från ${match.name}`, { duration: 2000 });
+                    } else {
+                      setNewLead({ ...newLead, company: v });
+                    }
+                  }}
+                  placeholder="Börja skriva företagsnamn..."
+                  className="rounded-lg"
+                />
+                {!!newLead.company && (
+                  findContactByCompany(newLead.company)
+                    ? <p className="text-[10px] text-emerald-600 mt-0.5 flex items-center gap-1"><Check className="h-3 w-3" /> Befintlig kund</p>
+                    : <p className="text-[10px] text-violet-600 mt-0.5 flex items-center gap-1"><Plus className="h-3 w-3" /> Ny kund skapas i Kontakter</p>
+                )}
+              </div>
               <div><Label className="text-xs">Rubrik *</Label><Input value={newLead.title} onChange={e => setNewLead({...newLead, title: e.target.value})} placeholder="T.ex. SEO Paket Q2" className="rounded-lg" /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -1043,6 +1190,15 @@ export default function SalesBoard() {
         </DialogContent>
       </Dialog>
 
+      {/* Shared datalist for company autocomplete from contacts */}
+      <datalist id="contacts-companies-list">
+        {contacts.map(c => (
+          <option key={c.id} value={c.name}>
+            {[c.contactPerson, c.seller].filter(Boolean).join(' · ')}
+          </option>
+        ))}
+      </datalist>
+
       {/* Edit Lead Dialog */}
       <Dialog open={!!editingLead} onOpenChange={(open) => { if (!open) setEditingLead(null); }}>
         <DialogContent className="max-w-lg rounded-2xl max-h-[90vh] overflow-y-auto">
@@ -1056,7 +1212,32 @@ export default function SalesBoard() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs">Företag *</Label>
-                  <Input value={editingLead.company} onChange={e => setEditingLead({ ...editingLead, company: e.target.value })} className="rounded-lg" />
+                  <Input
+                    value={editingLead.company}
+                    list="contacts-companies-list"
+                    onChange={e => {
+                      const v = e.target.value;
+                      const match = findContactByCompany(v);
+                      if (match) {
+                        const fields = contactToLeadFields(match);
+                        setEditingLead({
+                          ...editingLead,
+                          company: v,
+                          contactName: fields.contactName || editingLead.contactName,
+                          contactPhone: fields.contactPhone || editingLead.contactPhone,
+                          contactEmail: fields.contactEmail || editingLead.contactEmail,
+                          assignee: fields.assignee || editingLead.assignee,
+                        });
+                      } else {
+                        setEditingLead({ ...editingLead, company: v });
+                      }
+                    }}
+                    className="rounded-lg" />
+                  {!!editingLead.company && (
+                    findContactByCompany(editingLead.company)
+                      ? <p className="text-[10px] text-emerald-600 mt-0.5 flex items-center gap-1"><Check className="h-3 w-3" /> Befintlig kund</p>
+                      : <p className="text-[10px] text-violet-600 mt-0.5 flex items-center gap-1"><Plus className="h-3 w-3" /> Ny kund vid vinst</p>
+                  )}
                 </div>
                 <div>
                   <Label className="text-xs">Rubrik *</Label>
