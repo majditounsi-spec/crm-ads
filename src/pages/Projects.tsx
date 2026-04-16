@@ -177,27 +177,37 @@ interface ColumnDef {
 }
 
 const allColumns: ColumnDef[] = [
-  { key: 'name', label: 'Projekt', width: '22%' },
+  { key: 'name', label: 'Projekt', width: '24%' },
   { key: 'client', label: 'Företag', width: '12%' },
   { key: 'status', label: 'Status', width: '10%' },
   { key: 'priority', label: 'Prioritet', width: '9%' },
   { key: 'assignee', label: 'Ansvarig', width: '11%' },
-  { key: 'budget', label: 'Budget', width: '12%' },
-  { key: 'timeLogged', label: 'Loggad tid', width: '12%' },
-  { key: 'deadline', label: 'Deadline', width: '10%' },
+  { key: 'budget', label: 'Budget', width: '10%' },
+  { key: 'timeLogged', label: 'Loggad tid', width: '11%' },
+  { key: 'deadline', label: 'Deadline', width: '9%' },
   { key: 'tags', label: 'Taggar', width: '10%' },
   { key: 'spent', label: 'Spenderat', width: '10%' },
 ];
 
 const defaultColumnOrder: ColumnKey[] = ['name', 'client', 'status', 'priority', 'assignee', 'budget', 'timeLogged', 'deadline'];
-const COLUMN_STORAGE_KEY = 'marketflow_project_columns_v2';
+const COLUMN_STORAGE_KEY = 'marketflow_project_columns_v3';
 
 function loadColumnConfig(): ColumnKey[] {
   try {
+    // Clean up any legacy keys from older versions
+    try {
+      localStorage.removeItem('marketflow_project_columns');
+      localStorage.removeItem('marketflow_project_columns_v2');
+    } catch {}
+
     const stored = localStorage.getItem(COLUMN_STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const validKeys = allColumns.map(c => c.key);
+        const filtered = parsed.filter((k: any) => validKeys.includes(k));
+        if (filtered.length > 0) return filtered;
+      }
     }
   } catch {}
   return defaultColumnOrder;
@@ -260,11 +270,11 @@ function renderCell(project: Project, col: ColumnKey, navigate: (path: string) =
         </div>
       );
     case 'client':
-      return <span className="text-sm truncate block">{project.client}</span>;
+      return <span className="text-sm truncate block min-w-0">{project.client || '—'}</span>;
     case 'status':
       return (
         <Select value={project.status} onValueChange={v => { updateProject(project.id, { status: v as ProjectStatus }); toast.success('Status uppdaterad'); }}>
-          <SelectTrigger className="h-7 w-full border-none bg-transparent p-0 px-1 shadow-none focus:ring-0 [&>svg]:opacity-0 hover:[&>svg]:opacity-100">
+          <SelectTrigger className="h-7 w-full border-none bg-transparent p-0 px-1 shadow-none focus:ring-0 [&>svg]:opacity-0 hover:[&>svg]:opacity-100 min-w-0 truncate">
             <StatusBadge status={project.status} />
           </SelectTrigger>
           <SelectContent>{statusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
@@ -273,7 +283,7 @@ function renderCell(project: Project, col: ColumnKey, navigate: (path: string) =
     case 'priority':
       return (
         <Select value={project.priority} onValueChange={v => { updateProject(project.id, { priority: v as ProjectPriority }); toast.success('Prioritet uppdaterad'); }}>
-          <SelectTrigger className="h-7 w-full border-none bg-transparent p-0 px-1 shadow-none focus:ring-0 [&>svg]:opacity-0 hover:[&>svg]:opacity-100">
+          <SelectTrigger className="h-7 w-full border-none bg-transparent p-0 px-1 shadow-none focus:ring-0 [&>svg]:opacity-0 hover:[&>svg]:opacity-100 min-w-0 truncate">
             <PriorityBadge priority={project.priority} />
           </SelectTrigger>
           <SelectContent>{priorityOptions.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
@@ -284,27 +294,32 @@ function renderCell(project: Project, col: ColumnKey, navigate: (path: string) =
       return null;
     case 'budget':
       return (
-        <div className="space-y-1">
-          <div className="text-xs font-medium tabular-nums">{project.budget.toLocaleString('sv-SE')} <span className="text-muted-foreground">kr</span></div>
+        <div className="space-y-1 min-w-0">
+          <div className="text-xs font-medium tabular-nums truncate">{project.budget.toLocaleString('sv-SE')} <span className="text-muted-foreground">kr</span></div>
           <Progress value={Math.min(100, pct)} className={`h-1 ${profit.status === 'over' ? '[&>div]:bg-red-500' : profit.status === 'warning' ? '[&>div]:bg-amber-500' : ''}`} />
         </div>
       );
     case 'timeLogged':
       return (
-        <div className="space-y-0.5">
-          <div className="flex items-center gap-1 text-xs font-medium tabular-nums">
-            <Clock className="h-3 w-3 text-muted-foreground" />
-            {hours.toFixed(1)}h
+        <div className="space-y-0.5 min-w-0">
+          <div className="flex items-center gap-1 text-xs font-medium tabular-nums truncate">
+            <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
+            <span className="truncate">{hours.toFixed(1)}h</span>
           </div>
-          <div className={`text-[10px] tabular-nums font-medium ${profit.status === 'over' ? 'text-red-500' : profit.status === 'warning' ? 'text-amber-600' : 'text-muted-foreground'}`}>
+          <div className={`text-[10px] tabular-nums font-medium truncate ${profit.status === 'over' ? 'text-red-500' : profit.status === 'warning' ? 'text-amber-600' : 'text-muted-foreground'}`}>
             {profit.cost.toLocaleString('sv-SE')} kr ({pct}%)
           </div>
         </div>
       );
     case 'spent':
-      return <span className="text-xs font-medium tabular-nums">{profit.cost.toLocaleString('sv-SE')} kr</span>;
+      return <span className="text-xs font-medium tabular-nums truncate block">{profit.cost.toLocaleString('sv-SE')} kr</span>;
     case 'deadline':
-      return <span className="text-xs flex items-center gap-1"><Calendar className="h-3 w-3 text-muted-foreground" />{project.deadline}</span>;
+      return (
+        <span className="text-xs flex items-center gap-1 truncate min-w-0">
+          <Calendar className="h-3 w-3 text-muted-foreground shrink-0" />
+          <span className="truncate">{project.deadline || '—'}</span>
+        </span>
+      );
     case 'tags':
       return project.tags.length > 0 ? (
         <div className="flex gap-1 flex-wrap">
