@@ -27,6 +27,12 @@ import { toast } from 'sonner';
 // ── Lead types ──
 export type LeadStage = 'lead' | 'contact' | 'offer' | 'negotiation' | 'won' | 'lost';
 
+export interface LeadService {
+  id: string;
+  name: string;
+  budget: number;
+}
+
 export interface SalesLead {
   id: string;
   company: string;
@@ -35,6 +41,7 @@ export interface SalesLead {
   contactPhone: string;
   title: string;
   value: number;
+  services?: LeadService[];
   stage: LeadStage;
   assignee: string;
   tags: string[];
@@ -44,6 +51,19 @@ export interface SalesLead {
   updatedAt: string;
   getAcceptDealId?: string;
 }
+
+// Helper to compute total value (sum of services if present, else fallback to lead.value)
+function getLeadTotalValue(lead: SalesLead): number {
+  if (lead.services && lead.services.length > 0) {
+    return lead.services.reduce((sum, s) => sum + (Number(s.budget) || 0), 0);
+  }
+  return lead.value || 0;
+}
+
+// Common service options for the dropdown
+const SERVICE_OPTIONS = ['Google Ads', 'META Ads', 'SEO', 'Webb', 'Film/Foto', 'Content', 'Social Media', 'Email Marketing', 'PR', 'Strategi'];
+
+const newServiceId = () => `srv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
 const LEADS_KEY = 'marketflow_sales_leads';
 
@@ -59,16 +79,16 @@ const stageConfig: Record<LeadStage, { label: string; color: string; dotColor: s
 const stageOrder: LeadStage[] = ['lead', 'contact', 'offer', 'negotiation', 'won'];
 
 const sampleLeads: SalesLead[] = [
-  { id: 'sl-1', company: 'TechStart AB', contactName: 'Anna Karlsson', contactEmail: 'anna@techstart.se', contactPhone: '070-123 4567', title: 'SEO Paket Q2', value: 45000, stage: 'won', assignee: 'Kevin', tags: ['SEO'], notes: 'Vill starta i maj', source: 'Hemsida', createdAt: '2026-03-15', updatedAt: '2026-03-20', getAcceptDealId: 'ga-1' },
-  { id: 'sl-2', company: 'Nordic Food AB', contactName: 'Erik Svensson', contactEmail: 'erik@nordicfood.se', contactPhone: '073-555 1234', title: 'Google Ads Kampanj', value: 85000, stage: 'offer', assignee: 'Alban', tags: ['Google ADS'], notes: 'Budget godkänd av chef', source: 'Referens', createdAt: '2026-03-28', updatedAt: '2026-03-28' },
-  { id: 'sl-3', company: 'FashionBrand Sthlm', contactName: 'Lisa Berg', contactEmail: 'lisa@fashionbrand.se', contactPhone: '076-999 8877', title: 'Meta + SEO Bundle', value: 120000, stage: 'negotiation', assignee: 'Elin', tags: ['META', 'SEO'], notes: 'Vill ha rabatt på årsavtal', source: 'LinkedIn', createdAt: '2026-03-30', updatedAt: '2026-04-02' },
-  { id: 'sl-4', company: 'GreenEnergy AB', contactName: 'Johan Nilsson', contactEmail: 'johan@greenenergy.se', contactPhone: '070-111 2233', title: 'Film/Foto Produktion', value: 65000, stage: 'lead', assignee: 'Dan', tags: ['Film/Foto'], notes: '', source: 'Mässa', createdAt: '2026-04-01', updatedAt: '2026-04-01' },
-  { id: 'sl-5', company: 'DataVision AB', contactName: 'Maria Lindberg', contactEmail: 'maria@datavision.se', contactPhone: '073-444 5566', title: 'Webb & SEO Årsavtal', value: 180000, stage: 'won', assignee: 'Roine', tags: ['WEBB', 'SEO'], notes: 'Stort konto, hög prio', source: 'Kall prospekt', createdAt: '2026-02-10', updatedAt: '2026-02-15', getAcceptDealId: 'ga-5' },
-  { id: 'sl-6', company: 'HealthPlus AB', contactName: 'Peter Holm', contactEmail: 'peter@healthplus.se', contactPhone: '070-777 8899', title: 'Google Ads Optimering', value: 35000, stage: 'lost', assignee: 'Jonas', tags: ['Google ADS'], notes: 'Valde annan byrå', source: 'Google', createdAt: '2026-03-01', updatedAt: '2026-03-15' },
-  { id: 'sl-7', company: 'BuildPro Nordic', contactName: 'Sara Ekström', contactEmail: 'sara@buildpro.se', contactPhone: '076-333 2211', title: 'Social Media Paket', value: 55000, stage: 'contact', assignee: 'Therese', tags: ['META'], notes: 'Bokat möte 10 april', source: 'Instagram', createdAt: '2026-04-02', updatedAt: '2026-04-05' },
-  { id: 'sl-8', company: 'SportLife Sverige', contactName: 'Anders Jonsson', contactEmail: 'anders@sportlife.se', contactPhone: '070-666 5544', title: 'Komplett Mediabyrå-paket', value: 250000, stage: 'offer', assignee: 'Skhodran', tags: ['Google ADS', 'META', 'SEO', 'Film/Foto'], notes: 'Stort kontrakt, VD beslut', source: 'Referens', createdAt: '2026-04-01', updatedAt: '2026-04-07' },
-  { id: 'sl-9', company: 'EduTech AB', contactName: 'Karin Lund', contactEmail: 'karin@edutech.se', contactPhone: '073-888 7766', title: 'SEO + Content', value: 40000, stage: 'lead', assignee: 'Hussein', tags: ['SEO'], notes: '', source: 'Hemsida', createdAt: '2026-04-05', updatedAt: '2026-04-05' },
-  { id: 'sl-10', company: 'CleanHome AB', contactName: 'Magnus Ström', contactEmail: 'magnus@cleanhome.se', contactPhone: '070-222 3344', title: 'Webb Redesign', value: 75000, stage: 'contact', assignee: 'Anell', tags: ['WEBB'], notes: 'Vill ha offert inom en vecka', source: 'Kall prospekt', createdAt: '2026-04-03', updatedAt: '2026-04-06' },
+  { id: 'sl-1', company: 'TechStart AB', contactName: 'Anna Karlsson', contactEmail: 'anna@techstart.se', contactPhone: '070-123 4567', title: 'SEO Paket Q2', value: 45000, services: [{ id: 'srv-1a', name: 'SEO', budget: 45000 }], stage: 'won', assignee: 'Kevin', tags: ['SEO'], notes: 'Vill starta i maj', source: 'Hemsida', createdAt: '2026-03-15', updatedAt: '2026-03-20', getAcceptDealId: 'ga-1' },
+  { id: 'sl-2', company: 'Nordic Food AB', contactName: 'Erik Svensson', contactEmail: 'erik@nordicfood.se', contactPhone: '073-555 1234', title: 'Google Ads Kampanj', value: 85000, services: [{ id: 'srv-2a', name: 'Google Ads', budget: 85000 }], stage: 'offer', assignee: 'Alban', tags: ['Google ADS'], notes: 'Budget godkänd av chef', source: 'Referens', createdAt: '2026-03-28', updatedAt: '2026-03-28' },
+  { id: 'sl-3', company: 'FashionBrand Sthlm', contactName: 'Lisa Berg', contactEmail: 'lisa@fashionbrand.se', contactPhone: '076-999 8877', title: 'Meta + SEO Bundle', value: 120000, services: [{ id: 'srv-3a', name: 'META Ads', budget: 70000 }, { id: 'srv-3b', name: 'SEO', budget: 50000 }], stage: 'negotiation', assignee: 'Elin', tags: ['META', 'SEO'], notes: 'Vill ha rabatt på årsavtal', source: 'LinkedIn', createdAt: '2026-03-30', updatedAt: '2026-04-02' },
+  { id: 'sl-4', company: 'GreenEnergy AB', contactName: 'Johan Nilsson', contactEmail: 'johan@greenenergy.se', contactPhone: '070-111 2233', title: 'Film/Foto Produktion', value: 65000, services: [{ id: 'srv-4a', name: 'Film/Foto', budget: 65000 }], stage: 'lead', assignee: 'Dan', tags: ['Film/Foto'], notes: '', source: 'Mässa', createdAt: '2026-04-01', updatedAt: '2026-04-01' },
+  { id: 'sl-5', company: 'DataVision AB', contactName: 'Maria Lindberg', contactEmail: 'maria@datavision.se', contactPhone: '073-444 5566', title: 'Webb & SEO Årsavtal', value: 180000, services: [{ id: 'srv-5a', name: 'Webb', budget: 95000 }, { id: 'srv-5b', name: 'SEO', budget: 85000 }], stage: 'won', assignee: 'Roine', tags: ['WEBB', 'SEO'], notes: 'Stort konto, hög prio', source: 'Kall prospekt', createdAt: '2026-02-10', updatedAt: '2026-02-15', getAcceptDealId: 'ga-5' },
+  { id: 'sl-6', company: 'HealthPlus AB', contactName: 'Peter Holm', contactEmail: 'peter@healthplus.se', contactPhone: '070-777 8899', title: 'Google Ads Optimering', value: 35000, services: [{ id: 'srv-6a', name: 'Google Ads', budget: 35000 }], stage: 'lost', assignee: 'Jonas', tags: ['Google ADS'], notes: 'Valde annan byrå', source: 'Google', createdAt: '2026-03-01', updatedAt: '2026-03-15' },
+  { id: 'sl-7', company: 'BuildPro Nordic', contactName: 'Sara Ekström', contactEmail: 'sara@buildpro.se', contactPhone: '076-333 2211', title: 'Social Media Paket', value: 55000, services: [{ id: 'srv-7a', name: 'META Ads', budget: 35000 }, { id: 'srv-7b', name: 'Content', budget: 20000 }], stage: 'contact', assignee: 'Therese', tags: ['META'], notes: 'Bokat möte 10 april', source: 'Instagram', createdAt: '2026-04-02', updatedAt: '2026-04-05' },
+  { id: 'sl-8', company: 'SportLife Sverige', contactName: 'Anders Jonsson', contactEmail: 'anders@sportlife.se', contactPhone: '070-666 5544', title: 'Komplett Mediabyrå-paket', value: 250000, services: [{ id: 'srv-8a', name: 'Google Ads', budget: 70000 }, { id: 'srv-8b', name: 'META Ads', budget: 60000 }, { id: 'srv-8c', name: 'SEO', budget: 60000 }, { id: 'srv-8d', name: 'Film/Foto', budget: 60000 }], stage: 'offer', assignee: 'Skhodran', tags: ['Google ADS', 'META', 'SEO', 'Film/Foto'], notes: 'Stort kontrakt, VD beslut', source: 'Referens', createdAt: '2026-04-01', updatedAt: '2026-04-07' },
+  { id: 'sl-9', company: 'EduTech AB', contactName: 'Karin Lund', contactEmail: 'karin@edutech.se', contactPhone: '073-888 7766', title: 'SEO + Content', value: 40000, services: [{ id: 'srv-9a', name: 'SEO', budget: 25000 }, { id: 'srv-9b', name: 'Content', budget: 15000 }], stage: 'lead', assignee: 'Hussein', tags: ['SEO'], notes: '', source: 'Hemsida', createdAt: '2026-04-05', updatedAt: '2026-04-05' },
+  { id: 'sl-10', company: 'CleanHome AB', contactName: 'Magnus Ström', contactEmail: 'magnus@cleanhome.se', contactPhone: '070-222 3344', title: 'Webb Redesign', value: 75000, services: [{ id: 'srv-10a', name: 'Webb', budget: 75000 }], stage: 'contact', assignee: 'Anell', tags: ['WEBB'], notes: 'Vill ha offert inom en vecka', source: 'Kall prospekt', createdAt: '2026-04-03', updatedAt: '2026-04-06' },
 ];
 
 function loadLeads(): SalesLead[] {
@@ -170,9 +190,14 @@ export default function SalesBoard() {
   const [fnSecret, setFnSecret] = useState('');
   const [fnCompany, setFnCompany] = useState('');
 
-  const [newLead, setNewLead] = useState({
+  const [newLead, setNewLead] = useState<{
+    company: string; contactName: string; contactEmail: string; contactPhone: string;
+    title: string; assignee: string; tags: string; notes: string; source: string;
+    services: LeadService[];
+  }>({
     company: '', contactName: '', contactEmail: '', contactPhone: '',
-    title: '', value: '', assignee: '', tags: '', notes: '', source: '',
+    title: '', assignee: '', tags: '', notes: '', source: '',
+    services: [{ id: newServiceId(), name: 'Google Ads', budget: 0 }],
   });
 
   const setLeads = useCallback((updater: SalesLead[] | ((prev: SalesLead[]) => SalesLead[])) => {
@@ -185,11 +210,14 @@ export default function SalesBoard() {
 
   const addLead = useCallback(() => {
     if (!newLead.company || !newLead.title) { toast.error('Fyll i företag och rubrik'); return; }
+    const cleanServices = (newLead.services || []).filter(s => s.name && Number(s.budget) > 0);
+    const totalValue = cleanServices.reduce((sum, s) => sum + (Number(s.budget) || 0), 0);
     const lead: SalesLead = {
       id: `sl-${Date.now()}`,
       company: newLead.company, contactName: newLead.contactName,
       contactEmail: newLead.contactEmail, contactPhone: newLead.contactPhone,
-      title: newLead.title, value: Number(newLead.value) || 0,
+      title: newLead.title, value: totalValue,
+      services: cleanServices.length > 0 ? cleanServices : undefined,
       stage: 'lead', assignee: newLead.assignee || memberNames[0] || '',
       tags: newLead.tags ? newLead.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
       notes: newLead.notes, source: newLead.source,
@@ -198,8 +226,12 @@ export default function SalesBoard() {
     };
     setLeads(prev => [lead, ...prev]);
     setIsAddOpen(false);
-    setNewLead({ company: '', contactName: '', contactEmail: '', contactPhone: '', title: '', value: '', assignee: '', tags: '', notes: '', source: '' });
-    toast.success(`Lead "${lead.title}" skapad`);
+    setNewLead({
+      company: '', contactName: '', contactEmail: '', contactPhone: '',
+      title: '', assignee: '', tags: '', notes: '', source: '',
+      services: [{ id: newServiceId(), name: 'Google Ads', budget: 0 }],
+    });
+    toast.success(`Lead "${lead.title}" skapad${cleanServices.length > 1 ? ` med ${cleanServices.length} tjänster` : ''}`);
   }, [newLead, memberNames, setLeads]);
 
   const deleteLead = useCallback((id: string) => {
@@ -222,61 +254,66 @@ export default function SalesBoard() {
       setWonLead(updatedLead);
       setShowConfetti(true);
 
-      // Auto-create project with full brief from the won deal
+      // Auto-create one project per service from the won deal
       const deadline = new Date();
       deadline.setDate(deadline.getDate() + 60);
       const alreadyCreated = projects.some(p => p.tags.includes(`deal:${id}`));
       if (!alreadyCreated) {
-        (async () => {
-          const created = await addProject({
-            name: updatedLead.title,
-            client: updatedLead.company,
-            status: 'pending',
-            priority: updatedLead.value >= 100000 ? 'high' : updatedLead.value >= 50000 ? 'medium' : 'low',
-            deadline: deadline.toISOString().split('T')[0],
-            budget: updatedLead.value,
-            spent: 0,
-            assignee: updatedLead.assignee || 'Ej tilldelad',
-            tags: [...updatedLead.tags, `deal:${id}`],
-            // Full brief for production team
-            description: updatedLead.notes || '',
-            contactName: updatedLead.contactName,
-            contactEmail: updatedLead.contactEmail,
-            contactPhone: updatedLead.contactPhone,
-            leadSource: updatedLead.source,
-            dealId: id,
-            salesperson: updatedLead.assignee,
-          });
+        const services: LeadService[] = (updatedLead.services && updatedLead.services.length > 0)
+          ? updatedLead.services
+          : [{ id: 'srv-default', name: updatedLead.title, budget: updatedLead.value }];
 
-          // Seed starter tasks based on services in tags
-          if (created?.id) {
-            const today = new Date().toISOString().split('T')[0];
-            const serviceTags = updatedLead.tags.filter(t => !t.startsWith('deal:'));
-            const baseTasks: { title: string; assignee: string }[] = [
-              { title: '📞 Onboarding-möte med kund', assignee: updatedLead.assignee || 'Ej tilldelad' },
-              { title: '📂 Samla in material, tillgångar & accesser', assignee: updatedLead.assignee || 'Ej tilldelad' },
-              { title: '🗓️ Skapa tidsplan & milstolpar', assignee: updatedLead.assignee || 'Ej tilldelad' },
-              { title: '🚀 Kickoff-möte med produktionsteamet', assignee: updatedLead.assignee || 'Ej tilldelad' },
-            ];
-            const serviceTasks: { title: string; assignee: string }[] = serviceTags.map(s => ({
-              title: `🎯 Starta upp tjänst: ${s}`,
+        (async () => {
+          for (const svc of services) {
+            // One project per service
+            const projectName = services.length > 1
+              ? `${updatedLead.company} – ${svc.name}`
+              : updatedLead.title;
+
+            const created = await addProject({
+              name: projectName,
+              client: updatedLead.company,
+              status: 'pending',
+              priority: svc.budget >= 100000 ? 'high' : svc.budget >= 50000 ? 'medium' : 'low',
+              deadline: deadline.toISOString().split('T')[0],
+              budget: svc.budget,
+              spent: 0,
               assignee: updatedLead.assignee || 'Ej tilldelad',
-            }));
-            const followUp: { title: string; assignee: string }[] = [
-              { title: '💳 Skapa första fakturan (Fortnox)', assignee: updatedLead.assignee || 'Ej tilldelad' },
-              { title: '✅ Första leveranscheck med kund', assignee: updatedLead.assignee || 'Ej tilldelad' },
-            ];
-            const starterTasks = [...baseTasks, ...serviceTasks, ...followUp].map((t, idx) => ({
-              id: `task-${created.id}-${Date.now()}-${idx}`,
-              projectId: created.id,
-              title: t.title,
-              completed: false,
-              assignee: t.assignee,
-              createdAt: today,
-            }));
-            try {
-              localStorage.setItem(`marketflow_tasks_${created.id}`, JSON.stringify(starterTasks));
-            } catch {}
+              tags: [svc.name, `deal:${id}`, `service:${svc.id}`],
+              // Full brief for production team
+              description: `Tjänst: ${svc.name}\nBudget: ${svc.budget.toLocaleString('sv-SE')} kr\n\n${updatedLead.notes || ''}`,
+              contactName: updatedLead.contactName,
+              contactEmail: updatedLead.contactEmail,
+              contactPhone: updatedLead.contactPhone,
+              leadSource: updatedLead.source,
+              dealId: id,
+              salesperson: updatedLead.assignee,
+            });
+
+            // Seed starter tasks specific to this service
+            if (created?.id) {
+              const today = new Date().toISOString().split('T')[0];
+              const baseTasks: { title: string; assignee: string }[] = [
+                { title: `📞 Onboarding-möte – ${svc.name}`, assignee: updatedLead.assignee || 'Ej tilldelad' },
+                { title: `📂 Samla in material & accesser för ${svc.name}`, assignee: updatedLead.assignee || 'Ej tilldelad' },
+                { title: `🗓️ Skapa tidsplan & milstolpar – ${svc.name}`, assignee: updatedLead.assignee || 'Ej tilldelad' },
+                { title: `🚀 Kickoff-möte med produktion – ${svc.name}`, assignee: updatedLead.assignee || 'Ej tilldelad' },
+                { title: `🎯 Starta upp tjänst: ${svc.name}`, assignee: updatedLead.assignee || 'Ej tilldelad' },
+                { title: `💳 Skapa första fakturan (Fortnox) – ${svc.name}`, assignee: updatedLead.assignee || 'Ej tilldelad' },
+                { title: `✅ Första leveranscheck med kund – ${svc.name}`, assignee: updatedLead.assignee || 'Ej tilldelad' },
+              ];
+              const starterTasks = baseTasks.map((t, idx) => ({
+                id: `task-${created.id}-${Date.now()}-${idx}`,
+                projectId: created.id,
+                title: t.title,
+                completed: false,
+                assignee: t.assignee,
+                createdAt: today,
+              }));
+              try {
+                localStorage.setItem(`marketflow_tasks_${created.id}`, JSON.stringify(starterTasks));
+              } catch {}
+            }
           }
         })();
       }
@@ -322,7 +359,16 @@ export default function SalesBoard() {
   const saveEditedLead = useCallback(() => {
     if (!editingLead) return;
     if (!editingLead.company || !editingLead.title) { toast.error('Fyll i företag och rubrik'); return; }
-    const updated = { ...editingLead, updatedAt: new Date().toISOString().split('T')[0] };
+    const cleanServices = (editingLead.services || []).filter(s => s.name && Number(s.budget) > 0);
+    const totalValue = cleanServices.length > 0
+      ? cleanServices.reduce((sum, s) => sum + (Number(s.budget) || 0), 0)
+      : editingLead.value;
+    const updated: SalesLead = {
+      ...editingLead,
+      services: cleanServices.length > 0 ? cleanServices : undefined,
+      value: totalValue,
+      updatedAt: new Date().toISOString().split('T')[0],
+    };
     setLeads(prev => prev.map(l => l.id === updated.id ? updated : l));
     setEditingLead(null);
     toast.success('Lead uppdaterad');
@@ -335,9 +381,9 @@ export default function SalesBoard() {
   });
 
   const activeLeads = filteredLeads.filter(l => l.stage !== 'lost');
-  const totalValue = activeLeads.reduce((s, l) => s + l.value, 0);
-  const wonValue = filteredLeads.filter(l => l.stage === 'won').reduce((s, l) => s + l.value, 0);
-  const pipelineValue = filteredLeads.filter(l => !['won', 'lost'].includes(l.stage)).reduce((s, l) => s + l.value, 0);
+  const totalValue = activeLeads.reduce((s, l) => s + getLeadTotalValue(l), 0);
+  const wonValue = filteredLeads.filter(l => l.stage === 'won').reduce((s, l) => s + getLeadTotalValue(l), 0);
+  const pipelineValue = filteredLeads.filter(l => !['won', 'lost'].includes(l.stage)).reduce((s, l) => s + getLeadTotalValue(l), 0);
   const winRate = leads.filter(l => ['won', 'lost'].includes(l.stage)).length > 0
     ? Math.round(leads.filter(l => l.stage === 'won').length / leads.filter(l => ['won', 'lost'].includes(l.stage)).length * 100) : 0;
 
@@ -430,7 +476,7 @@ export default function SalesBoard() {
                 className="flex gap-3 sm:gap-4 overflow-x-auto pb-4">
                 {stageOrder.map(stage => {
                   const stageLeads = filteredLeads.filter(l => l.stage === stage);
-                  const stageValue = stageLeads.reduce((s, l) => s + l.value, 0);
+                  const stageValue = stageLeads.reduce((s, l) => s + getLeadTotalValue(l), 0);
                   const cfg = stageConfig[stage];
                   const isDragOver = dragOverStage === stage;
                   return (
@@ -473,6 +519,19 @@ export default function SalesBoard() {
                                 </Badge>
                               </div>
 
+                              {/* Services breakdown */}
+                              {lead.services && lead.services.length > 0 && (
+                                <div className="mt-2.5 rounded-lg bg-muted/40 border border-dashed p-2 space-y-1">
+                                  <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Tjänster</p>
+                                  {lead.services.map(svc => (
+                                    <div key={svc.id} className="flex items-center justify-between text-[11px]">
+                                      <span className="text-foreground/80 truncate">{svc.name}</span>
+                                      <span className="font-semibold tabular-nums shrink-0 ml-2">{svc.budget.toLocaleString('sv-SE')} kr</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
                               {/* Tags */}
                               {lead.tags.length > 0 && (
                                 <div className="flex gap-1 mt-2 flex-wrap">
@@ -482,7 +541,7 @@ export default function SalesBoard() {
 
                               {/* Value + Assignee */}
                               <div className="mt-3 flex items-center justify-between">
-                                <span className="font-heading font-bold text-sm">{lead.value.toLocaleString('sv-SE')} kr</span>
+                                <span className="font-heading font-bold text-sm">{getLeadTotalValue(lead).toLocaleString('sv-SE')} kr</span>
                                 <div className="flex items-center gap-1.5">
                                   <div className={`h-6 w-6 rounded-full ${getAvatarColor(lead.assignee)} text-white text-[9px] font-bold flex items-center justify-center`}>
                                     {getInitials(lead.assignee)}
@@ -578,7 +637,7 @@ export default function SalesBoard() {
                           </div>
                         </div>
                         <div className="mt-2 flex items-center justify-between">
-                          <span className="text-sm font-bold">{lead.value.toLocaleString('sv-SE')} kr</span>
+                          <span className="text-sm font-bold">{getLeadTotalValue(lead).toLocaleString('sv-SE')} kr</span>
                           <Badge className="text-[10px] bg-red-100 text-red-600">Förlorad</Badge>
                         </div>
                         <div className="mt-2 flex gap-1">
@@ -664,7 +723,12 @@ export default function SalesBoard() {
                                 </Select>
                               </td>
                               <td className="px-3 py-2.5 text-right">
-                                <span className="text-sm font-bold tabular-nums">{lead.value.toLocaleString('sv-SE')} kr</span>
+                                <div className="flex flex-col items-end">
+                                  <span className="text-sm font-bold tabular-nums">{getLeadTotalValue(lead).toLocaleString('sv-SE')} kr</span>
+                                  {lead.services && lead.services.length > 1 && (
+                                    <span className="text-[10px] text-muted-foreground">{lead.services.length} tjänster</span>
+                                  )}
+                                </div>
                               </td>
                               <td className="px-3 py-2.5">
                                 <Select value={lead.assignee} onValueChange={v => updateLeadField(lead.id, 'assignee', v)}>
@@ -712,7 +776,7 @@ export default function SalesBoard() {
                               <tr key={`${lead.id}-detail`} className="bg-muted/10">
                                 <td></td>
                                 <td colSpan={9} className="px-3 py-3">
-                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl">
+                                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 max-w-4xl">
                                     <div className="space-y-2">
                                       <p className="text-[10px] font-semibold text-muted-foreground uppercase">Kontaktinfo</p>
                                       <div className="space-y-1 text-xs">
@@ -728,6 +792,25 @@ export default function SalesBoard() {
                                         <p><span className="text-muted-foreground">Skapad:</span> {lead.createdAt}</p>
                                         <p><span className="text-muted-foreground">Uppdaterad:</span> {lead.updatedAt}</p>
                                       </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                      <p className="text-[10px] font-semibold text-muted-foreground uppercase">Tjänster & Budget</p>
+                                      {lead.services && lead.services.length > 0 ? (
+                                        <div className="rounded-lg border bg-card p-2 space-y-1">
+                                          {lead.services.map(svc => (
+                                            <div key={svc.id} className="flex items-center justify-between text-xs">
+                                              <span className="truncate">{svc.name}</span>
+                                              <span className="font-semibold tabular-nums">{svc.budget.toLocaleString('sv-SE')} kr</span>
+                                            </div>
+                                          ))}
+                                          <div className="flex items-center justify-between text-xs pt-1 mt-1 border-t font-bold">
+                                            <span>Totalt</span>
+                                            <span className="tabular-nums">{getLeadTotalValue(lead).toLocaleString('sv-SE')} kr</span>
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <p className="text-xs text-muted-foreground italic">Inga tjänster definierade — redigera leaden för att lägga till.</p>
+                                      )}
                                     </div>
                                     <div className="space-y-2">
                                       <p className="text-[10px] font-semibold text-muted-foreground uppercase">Anteckningar</p>
@@ -858,7 +941,7 @@ export default function SalesBoard() {
 
       {/* Add Lead Dialog */}
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-        <DialogContent className="max-w-lg rounded-2xl">
+        <DialogContent className="max-w-lg rounded-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle className="font-heading">Ny säljlead</DialogTitle></DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="grid grid-cols-2 gap-3">
@@ -867,21 +950,92 @@ export default function SalesBoard() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div><Label className="text-xs">Kontaktperson</Label><Input value={newLead.contactName} onChange={e => setNewLead({...newLead, contactName: e.target.value})} placeholder="Namn" className="rounded-lg" /></div>
-              <div><Label className="text-xs">Värde (kr)</Label><Input type="number" value={newLead.value} onChange={e => setNewLead({...newLead, value: e.target.value})} placeholder="0" className="rounded-lg" /></div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
               <div><Label className="text-xs">E-post</Label><Input value={newLead.contactEmail} onChange={e => setNewLead({...newLead, contactEmail: e.target.value})} placeholder="namn@foretag.se" className="rounded-lg" /></div>
-              <div><Label className="text-xs">Telefon</Label><Input value={newLead.contactPhone} onChange={e => setNewLead({...newLead, contactPhone: e.target.value})} placeholder="070-..." className="rounded-lg" /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label className="text-xs">Ansvarig säljare</Label>
-                <Select value={newLead.assignee} onValueChange={v => setNewLead({...newLead, assignee: v})}>
-                  <SelectTrigger className="rounded-lg"><SelectValue placeholder="Välj säljare" /></SelectTrigger>
-                  <SelectContent>{memberNames.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
+              <div><Label className="text-xs">Telefon</Label><Input value={newLead.contactPhone} onChange={e => setNewLead({...newLead, contactPhone: e.target.value})} placeholder="070-..." className="rounded-lg" /></div>
               <div><Label className="text-xs">Källa</Label><Input value={newLead.source} onChange={e => setNewLead({...newLead, source: e.target.value})} placeholder="Hemsida, LinkedIn..." className="rounded-lg" /></div>
             </div>
+            <div>
+              <Label className="text-xs">Ansvarig säljare</Label>
+              <Select value={newLead.assignee} onValueChange={v => setNewLead({...newLead, assignee: v})}>
+                <SelectTrigger className="rounded-lg"><SelectValue placeholder="Välj säljare" /></SelectTrigger>
+                <SelectContent>{memberNames.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+
+            {/* Services editor */}
+            <div className="rounded-xl border bg-muted/30 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold">Tjänster & Budget</Label>
+                <span className="text-[10px] text-muted-foreground">Ett projekt skapas per tjänst när leaden vinns</span>
+              </div>
+              {newLead.services.map((svc, idx) => (
+                <div key={svc.id} className="flex gap-2 items-center">
+                  <div className="flex-1">
+                    <Select
+                      value={SERVICE_OPTIONS.includes(svc.name) ? svc.name : '__custom__'}
+                      onValueChange={(v) => setNewLead({
+                        ...newLead,
+                        services: newLead.services.map(s => s.id === svc.id ? { ...s, name: v === '__custom__' ? '' : v } : s),
+                      })}>
+                      <SelectTrigger className="rounded-lg h-9 text-xs"><SelectValue placeholder="Välj tjänst" /></SelectTrigger>
+                      <SelectContent>
+                        {SERVICE_OPTIONS.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+                        <SelectItem value="__custom__">Annan...</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {!SERVICE_OPTIONS.includes(svc.name) && (
+                      <Input
+                        value={svc.name}
+                        onChange={(e) => setNewLead({
+                          ...newLead,
+                          services: newLead.services.map(s => s.id === svc.id ? { ...s, name: e.target.value } : s),
+                        })}
+                        placeholder="Eget tjänstenamn"
+                        className="rounded-lg h-8 text-xs mt-1"
+                      />
+                    )}
+                  </div>
+                  <Input
+                    type="number"
+                    value={svc.budget || ''}
+                    onChange={(e) => setNewLead({
+                      ...newLead,
+                      services: newLead.services.map(s => s.id === svc.id ? { ...s, budget: Number(e.target.value) || 0 } : s),
+                    })}
+                    placeholder="Budget (kr)"
+                    className="rounded-lg h-9 text-xs w-32 tabular-nums"
+                  />
+                  <Button
+                    type="button" size="sm" variant="ghost"
+                    className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive shrink-0"
+                    disabled={newLead.services.length <= 1}
+                    onClick={() => setNewLead({
+                      ...newLead,
+                      services: newLead.services.filter(s => s.id !== svc.id),
+                    })}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+              <div className="flex items-center justify-between pt-1">
+                <Button
+                  type="button" size="sm" variant="outline"
+                  className="h-7 px-2 text-xs rounded-md gap-1"
+                  onClick={() => setNewLead({
+                    ...newLead,
+                    services: [...newLead.services, { id: newServiceId(), name: 'SEO', budget: 0 }],
+                  })}>
+                  <Plus className="h-3 w-3" /> Lägg till tjänst
+                </Button>
+                <div className="text-xs">
+                  <span className="text-muted-foreground">Totalt: </span>
+                  <span className="font-bold tabular-nums">{newLead.services.reduce((sum, s) => sum + (Number(s.budget) || 0), 0).toLocaleString('sv-SE')} kr</span>
+                </div>
+              </div>
+            </div>
+
             <div><Label className="text-xs">Taggar (kommaseparerade)</Label><Input value={newLead.tags} onChange={e => setNewLead({...newLead, tags: e.target.value})} placeholder="SEO, Google ADS, META..." className="rounded-lg" /></div>
             <div><Label className="text-xs">Anteckningar</Label><Textarea value={newLead.notes} onChange={e => setNewLead({...newLead, notes: e.target.value})} rows={2} placeholder="Eventuella anteckningar..." className="rounded-lg" /></div>
             <Button onClick={addLead} className="w-full rounded-lg gap-1.5"><Plus className="h-4 w-4" />Skapa lead</Button>
@@ -915,20 +1069,88 @@ export default function SalesBoard() {
                   <Input value={editingLead.contactName} onChange={e => setEditingLead({ ...editingLead, contactName: e.target.value })} className="rounded-lg" />
                 </div>
                 <div>
-                  <Label className="text-xs">Värde (kr)</Label>
-                  <Input type="number" value={editingLead.value} onChange={e => setEditingLead({ ...editingLead, value: Number(e.target.value) || 0 })} className="rounded-lg" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
                   <Label className="text-xs">E-post</Label>
                   <Input value={editingLead.contactEmail} onChange={e => setEditingLead({ ...editingLead, contactEmail: e.target.value })} className="rounded-lg" />
                 </div>
-                <div>
-                  <Label className="text-xs">Telefon</Label>
-                  <Input value={editingLead.contactPhone} onChange={e => setEditingLead({ ...editingLead, contactPhone: e.target.value })} className="rounded-lg" />
-                </div>
               </div>
+              <div>
+                <Label className="text-xs">Telefon</Label>
+                <Input value={editingLead.contactPhone} onChange={e => setEditingLead({ ...editingLead, contactPhone: e.target.value })} className="rounded-lg" />
+              </div>
+
+              {/* Services editor */}
+              {(() => {
+                const currentServices: LeadService[] = editingLead.services && editingLead.services.length > 0
+                  ? editingLead.services
+                  : [{ id: newServiceId(), name: editingLead.title || 'Tjänst', budget: editingLead.value || 0 }];
+                const updateServices = (next: LeadService[]) => {
+                  const totalBudget = next.reduce((sum, s) => sum + (Number(s.budget) || 0), 0);
+                  setEditingLead({ ...editingLead, services: next, value: totalBudget });
+                };
+                return (
+                  <div className="rounded-xl border bg-muted/30 p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-semibold">Tjänster & Budget</Label>
+                      <span className="text-[10px] text-muted-foreground">Ett projekt skapas per tjänst när leaden vinns</span>
+                    </div>
+                    {currentServices.map((svc) => (
+                      <div key={svc.id} className="flex gap-2 items-center">
+                        <div className="flex-1">
+                          <Select
+                            value={SERVICE_OPTIONS.includes(svc.name) ? svc.name : '__custom__'}
+                            onValueChange={(v) => updateServices(
+                              currentServices.map(s => s.id === svc.id ? { ...s, name: v === '__custom__' ? '' : v } : s),
+                            )}>
+                            <SelectTrigger className="rounded-lg h-9 text-xs"><SelectValue placeholder="Välj tjänst" /></SelectTrigger>
+                            <SelectContent>
+                              {SERVICE_OPTIONS.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+                              <SelectItem value="__custom__">Annan...</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          {!SERVICE_OPTIONS.includes(svc.name) && (
+                            <Input
+                              value={svc.name}
+                              onChange={(e) => updateServices(
+                                currentServices.map(s => s.id === svc.id ? { ...s, name: e.target.value } : s),
+                              )}
+                              placeholder="Eget tjänstenamn"
+                              className="rounded-lg h-8 text-xs mt-1"
+                            />
+                          )}
+                        </div>
+                        <Input
+                          type="number"
+                          value={svc.budget || ''}
+                          onChange={(e) => updateServices(
+                            currentServices.map(s => s.id === svc.id ? { ...s, budget: Number(e.target.value) || 0 } : s),
+                          )}
+                          placeholder="Budget (kr)"
+                          className="rounded-lg h-9 text-xs w-32 tabular-nums"
+                        />
+                        <Button
+                          type="button" size="sm" variant="ghost"
+                          className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive shrink-0"
+                          disabled={currentServices.length <= 1}
+                          onClick={() => updateServices(currentServices.filter(s => s.id !== svc.id))}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between pt-1">
+                      <Button
+                        type="button" size="sm" variant="outline"
+                        className="h-7 px-2 text-xs rounded-md gap-1"
+                        onClick={() => updateServices([...currentServices, { id: newServiceId(), name: 'SEO', budget: 0 }])}>
+                        <Plus className="h-3 w-3" /> Lägg till tjänst
+                      </Button>
+                      <div className="text-xs">
+                        <span className="text-muted-foreground">Totalt: </span>
+                        <span className="font-bold tabular-nums">{currentServices.reduce((sum, s) => sum + (Number(s.budget) || 0), 0).toLocaleString('sv-SE')} kr</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs">Steg</Label>
