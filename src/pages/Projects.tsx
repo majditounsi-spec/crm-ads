@@ -177,20 +177,20 @@ interface ColumnDef {
 }
 
 const allColumns: ColumnDef[] = [
-  { key: 'name', label: 'Projekt', width: '24%' },
-  { key: 'client', label: 'Företag', width: '12%' },
-  { key: 'status', label: 'Status', width: '10%' },
-  { key: 'priority', label: 'Prioritet', width: '9%' },
-  { key: 'assignee', label: 'Ansvarig', width: '11%' },
-  { key: 'budget', label: 'Budget', width: '10%' },
-  { key: 'timeLogged', label: 'Loggad tid', width: '11%' },
-  { key: 'deadline', label: 'Deadline', width: '9%' },
+  { key: 'name', label: 'Projekt', width: '18%' },
+  { key: 'client', label: 'Företag', width: '13%' },
+  { key: 'status', label: 'Status', width: '11%' },
+  { key: 'priority', label: 'Prioritet', width: '10%' },
+  { key: 'assignee', label: 'Ansvarig', width: '12%' },
+  { key: 'budget', label: 'Budget', width: '12%' },
+  { key: 'timeLogged', label: 'Loggad tid', width: '12%' },
+  { key: 'deadline', label: 'Deadline', width: '8%' },
   { key: 'tags', label: 'Taggar', width: '10%' },
   { key: 'spent', label: 'Spenderat', width: '10%' },
 ];
 
 const defaultColumnOrder: ColumnKey[] = ['name', 'client', 'status', 'priority', 'assignee', 'budget', 'timeLogged', 'deadline'];
-const COLUMN_STORAGE_KEY = 'marketflow_project_columns_v3';
+const COLUMN_STORAGE_KEY = 'marketflow_project_columns_v4';
 
 function loadColumnConfig(): ColumnKey[] {
   try {
@@ -198,6 +198,7 @@ function loadColumnConfig(): ColumnKey[] {
     try {
       localStorage.removeItem('marketflow_project_columns');
       localStorage.removeItem('marketflow_project_columns_v2');
+      localStorage.removeItem('marketflow_project_columns_v3');
     } catch {}
 
     const stored = localStorage.getItem(COLUMN_STORAGE_KEY);
@@ -949,7 +950,7 @@ export default function Projects() {
                 </colgroup>
                 <thead>
                   <tr className="border-b bg-muted/30">
-                    {visibleColumns.map(key => {
+                    {visibleColumns.map((key, hi) => {
                       const col = allColumns.find(c => c.key === key)!;
                       const isSorted = sortColumn === key;
                       const isDragTarget = dragOverCol === key && dragCol !== key;
@@ -961,10 +962,9 @@ export default function Projects() {
                           onDrop={() => handleColDrop(key)}
                           onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
                           onClick={() => handleColumnSort(key)}
-                          className={`text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2.5 cursor-pointer select-none hover:text-foreground hover:bg-muted/50 transition-colors ${isDragTarget ? 'bg-primary/10 border-l-2 border-primary' : ''} ${dragCol === key ? 'opacity-40' : ''}`}
+                          className={`text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider py-2.5 cursor-pointer select-none hover:text-foreground hover:bg-muted/50 transition-colors ${hi === 0 ? 'pl-3 pr-2' : 'px-3'} ${isDragTarget ? 'bg-primary/10 border-l-2 border-primary' : ''} ${dragCol === key ? 'opacity-40' : ''}`}
                         >
                           <div className="flex items-center gap-1">
-                            <GripVertical className="h-3 w-3 opacity-0 group-hover:opacity-30 cursor-grab shrink-0" />
                             <span>{col.label}</span>
                             {isSorted && (
                               sortDirection === 'asc'
