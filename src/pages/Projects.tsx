@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Project, ProjectStatus, ProjectPriority } from '@/types/crm';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
+import { useHourlyRate, getProjectHours, computeProfitability } from '@/hooks/useBilling';
 import { toast } from 'sonner';
 import {
   DndContext, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors,
@@ -167,7 +168,7 @@ const statusLabels: Record<ProjectStatus, string> = {
 type ViewMode = 'table' | 'kanban' | 'timeline';
 
 /* ===== Column Configuration ===== */
-type ColumnKey = 'name' | 'client' | 'status' | 'priority' | 'assignee' | 'budget' | 'deadline' | 'tags' | 'spent';
+type ColumnKey = 'name' | 'client' | 'status' | 'priority' | 'assignee' | 'budget' | 'deadline' | 'tags' | 'spent' | 'timeLogged';
 
 interface ColumnDef {
   key: ColumnKey;
@@ -176,19 +177,20 @@ interface ColumnDef {
 }
 
 const allColumns: ColumnDef[] = [
-  { key: 'name', label: 'Tjänst / Projekt', width: '20%' },
-  { key: 'client', label: 'Företag', width: '13%' },
-  { key: 'status', label: 'Status', width: '11%' },
-  { key: 'priority', label: 'Prioritet', width: '10%' },
-  { key: 'assignee', label: 'Ansvarig', width: '12%' },
-  { key: 'budget', label: 'Budget', width: '13%' },
+  { key: 'name', label: 'Projekt', width: '22%' },
+  { key: 'client', label: 'Företag', width: '12%' },
+  { key: 'status', label: 'Status', width: '10%' },
+  { key: 'priority', label: 'Prioritet', width: '9%' },
+  { key: 'assignee', label: 'Ansvarig', width: '11%' },
+  { key: 'budget', label: 'Budget', width: '12%' },
+  { key: 'timeLogged', label: 'Loggad tid', width: '12%' },
+  { key: 'deadline', label: 'Deadline', width: '10%' },
+  { key: 'tags', label: 'Taggar', width: '10%' },
   { key: 'spent', label: 'Spenderat', width: '10%' },
-  { key: 'deadline', label: 'Deadline', width: '11%' },
-  { key: 'tags', label: 'Taggar', width: '12%' },
 ];
 
-const defaultColumnOrder: ColumnKey[] = ['name', 'client', 'status', 'priority', 'assignee', 'budget', 'deadline'];
-const COLUMN_STORAGE_KEY = 'marketflow_project_columns';
+const defaultColumnOrder: ColumnKey[] = ['name', 'client', 'status', 'priority', 'assignee', 'budget', 'timeLogged', 'deadline'];
+const COLUMN_STORAGE_KEY = 'marketflow_project_columns_v2';
 
 function loadColumnConfig(): ColumnKey[] {
   try {
@@ -239,16 +241,20 @@ function RenderAssigneeCell({ project, teamMembers, updateProject }: { project: 
   );
 }
 
-function renderCell(project: Project, col: ColumnKey, navigate: (path: string) => void, updateProject: (id: string, updates: Partial<Project>) => void, teamMembers?: string[]) {
-  const pct = project.budget > 0 ? Math.round((project.spent / project.budget) * 100) : 0;
+function renderCell(project: Project, col: ColumnKey, navigate: (path: string) => void, updateProject: (id: string, updates: Partial<Project>) => void, teamMembers?: string[], hourlyRate: number = 1750) {
+  const hours = getProjectHours(project.id);
+  const profit = computeProfitability(project.budget, hours, hourlyRate);
+  const pct = Math.round(profit.budgetUsedPct);
   switch (col) {
     case 'name':
       return (
-        <div className="cursor-pointer" onClick={() => navigate(`/projects/${project.id}`)}>
-          <span className="text-sm font-medium hover:text-primary transition-colors block truncate">{project.name}</span>
-          {project.tags.length > 0 && (
-            <div className="flex gap-1 mt-1 flex-wrap">
-              {project.tags.map(tag => <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground">{tag}</span>)}
+        <div className="cursor-pointer min-w-0" onClick={() => navigate(`/projects/${project.id}`)}>
+          <span className="text-sm font-semibold hover:text-primary transition-colors block truncate">{project.name}</span>
+          {(project.client || project.tags.filter(t => !t.startsWith('deal:')).length > 0) && (
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+              {project.tags.filter(t => !t.startsWith('deal:')).slice(0, 3).map(tag => (
+                <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground">{tag}</span>
+              ))}
             </div>
           )}
         </div>
@@ -280,11 +286,23 @@ function renderCell(project: Project, col: ColumnKey, navigate: (path: string) =
       return (
         <div className="space-y-1">
           <div className="text-xs font-medium tabular-nums">{project.budget.toLocaleString('sv-SE')} <span className="text-muted-foreground">kr</span></div>
-          <Progress value={pct} className={`h-1 ${pct > 90 ? '[&>div]:bg-red-500' : ''}`} />
+          <Progress value={Math.min(100, pct)} className={`h-1 ${profit.status === 'over' ? '[&>div]:bg-red-500' : profit.status === 'warning' ? '[&>div]:bg-amber-500' : ''}`} />
+        </div>
+      );
+    case 'timeLogged':
+      return (
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-1 text-xs font-medium tabular-nums">
+            <Clock className="h-3 w-3 text-muted-foreground" />
+            {hours.toFixed(1)}h
+          </div>
+          <div className={`text-[10px] tabular-nums font-medium ${profit.status === 'over' ? 'text-red-500' : profit.status === 'warning' ? 'text-amber-600' : 'text-muted-foreground'}`}>
+            {profit.cost.toLocaleString('sv-SE')} kr ({pct}%)
+          </div>
         </div>
       );
     case 'spent':
-      return <span className="text-xs font-medium">{project.spent.toLocaleString('sv-SE')} kr</span>;
+      return <span className="text-xs font-medium tabular-nums">{profit.cost.toLocaleString('sv-SE')} kr</span>;
     case 'deadline':
       return <span className="text-xs flex items-center gap-1"><Calendar className="h-3 w-3 text-muted-foreground" />{project.deadline}</span>;
     case 'tags':
@@ -409,6 +427,7 @@ export default function Projects() {
   const navigate = useNavigate();
   const { projects, addProject, updateProject, deleteProject } = useProjects();
   const { memberNames } = useTeamMembers();
+  const { rate: hourlyRate } = useHourlyRate();
   const [filter, setFilter] = useState<ProjectStatus | 'all'>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('kanban');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -954,23 +973,33 @@ export default function Projects() {
                         <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }}
                           className={`monday-row group ${isExpanded ? 'bg-muted/20' : ''}`}>
                           {visibleColumns.map((key, ci) => (
-                            <td key={key} className="px-3 py-2.5 overflow-hidden">
+                            <td key={key} className={`py-2.5 align-middle overflow-hidden ${ci === 0 ? 'pl-3 pr-2' : 'px-3'}`}>
                               {key === 'assignee' ? (
                                 <RenderAssigneeCell project={project} teamMembers={memberNames} updateProject={updateProject} />
                               ) : ci === 0 ? (
-                                <div className="flex items-start gap-1.5">
-                                  <button onClick={() => toggleExpand(project.id)} className="mt-1 shrink-0 p-0.5 rounded hover:bg-muted transition-colors">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <button onClick={(e) => { e.stopPropagation(); toggleExpand(project.id); }}
+                                    className="shrink-0 p-0.5 rounded hover:bg-muted transition-colors -ml-0.5">
                                     {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
                                   </button>
-                                  <div className="min-w-0 flex-1">
-                                    {renderCell(project, key, navigate, updateProject, memberNames)}
-                                    {tasks.length > 0 && !isExpanded && (
-                                      <span className="text-[10px] text-muted-foreground mt-0.5 block">{completedCount}/{tasks.length} uppgifter klara</span>
+                                  <div className="min-w-0 flex-1 cursor-pointer" onClick={() => navigate(`/projects/${project.id}`)}>
+                                    <div className="text-sm font-semibold hover:text-primary transition-colors truncate">{project.name}</div>
+                                    {(tasks.length > 0 || project.tags.filter(t => !t.startsWith('deal:')).length > 0) && (
+                                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                        {tasks.length > 0 && (
+                                          <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                                            <CheckCircle2 className="h-2.5 w-2.5" />{completedCount}/{tasks.length}
+                                          </span>
+                                        )}
+                                        {project.tags.filter(t => !t.startsWith('deal:')).slice(0, 3).map(tag => (
+                                          <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground">{tag}</span>
+                                        ))}
+                                      </div>
                                     )}
                                   </div>
                                 </div>
                               ) : (
-                                renderCell(project, key, navigate, updateProject)
+                                renderCell(project, key, navigate, updateProject, memberNames, hourlyRate)
                               )}
                             </td>
                           ))}

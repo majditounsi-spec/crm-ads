@@ -41,6 +41,7 @@ export interface TimeEntry {
   hours: number;
   date: string;
   assignee: string;
+  taskId?: string;
 }
 
 export interface Automation {

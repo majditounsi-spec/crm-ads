@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import {
   Settings as SettingsIcon, Palette, Building2, Upload, RotateCcw, Check,
   Eye, Type, Radius, Sun, Moon, Sparkles, Image, Shield, Users, Globe,
-  Target, TrendingUp, Camera, Monitor, Clock,
+  Target, TrendingUp, Camera, Monitor, Clock, DollarSign, Save,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useWhiteLabel, themePresets } from '@/hooks/useWhiteLabel';
+import { useHourlyRate } from '@/hooks/useBilling';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
@@ -39,7 +40,11 @@ const presetColors: Record<string, string> = {
 export default function Settings() {
   const { config, updateConfig, resetConfig, applyPreset } = useWhiteLabel();
   const logoInputRef = useRef<HTMLInputElement>(null);
-  const [activeTab, setActiveTab] = useState<'brand' | 'theme' | 'services' | 'roles'>('brand');
+  const [activeTab, setActiveTab] = useState<'brand' | 'theme' | 'services' | 'billing' | 'roles'>('brand');
+
+  // ── Billing / Hourly rate ──
+  const { rate: hourlyRate, setRate: setHourlyRate } = useHourlyRate();
+  const [rateInput, setRateInput] = useState<string>(String(hourlyRate));
 
   // ── Roles ──
   const ROLES_KEY = 'marketflow_roles';
@@ -195,6 +200,7 @@ export default function Settings() {
           { key: 'brand' as const, label: 'Varumärke', icon: Building2 },
           { key: 'theme' as const, label: 'Tema & Utseende', icon: Palette },
           { key: 'services' as const, label: 'Tjänster', icon: SettingsIcon },
+          { key: 'billing' as const, label: 'Ekonomi & Tid', icon: DollarSign },
           { key: 'roles' as const, label: 'Roller', icon: Shield },
         ].map(tab => (
           <Button key={tab.key}
@@ -561,6 +567,76 @@ export default function Settings() {
             </CardContent>
           </Card>
         </motion.div>
+      )}
+
+      {activeTab === 'billing' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <motion.div variants={item}>
+            <Card>
+              <CardContent className="pt-5 pb-5 space-y-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center">
+                    <DollarSign className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-heading font-semibold">Timpris</h3>
+                    <p className="text-xs text-muted-foreground">Standardkostnad per timme som används för kostnads- & lönsamhetsberäkningar</p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <Label className="text-xs">Timpris (kr/h)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      min={0}
+                      step={50}
+                      value={rateInput}
+                      onChange={e => setRateInput(e.target.value)}
+                      className="rounded-lg"
+                      placeholder="1750"
+                    />
+                    <Button
+                      className="rounded-lg gap-1.5"
+                      onClick={() => {
+                        const n = Number(rateInput);
+                        if (!Number.isFinite(n) || n <= 0) { toast.error('Ange ett giltigt timpris'); return; }
+                        setHourlyRate(n);
+                        toast.success(`Timpris sparat: ${n.toLocaleString('sv-SE')} kr/h`);
+                      }}>
+                      <Save className="h-4 w-4" /> Spara
+                    </Button>
+                  </div>
+                  <div className="rounded-xl bg-muted/40 border p-4 text-xs space-y-1">
+                    <p className="text-muted-foreground">Nuvarande timpris:</p>
+                    <p className="text-2xl font-heading font-bold text-emerald-600">{hourlyRate.toLocaleString('sv-SE')} <span className="text-sm text-muted-foreground">kr/h</span></p>
+                    <p className="text-muted-foreground mt-2">Ett 8-timmarsarbete motsvarar <span className="font-semibold text-foreground">{(hourlyRate * 8).toLocaleString('sv-SE')} kr</span></p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+          <motion.div variants={item}>
+            <Card>
+              <CardContent className="pt-5 pb-5 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                    <Clock className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-heading font-semibold">Så här används timpriset</h3>
+                    <p className="text-xs text-muted-foreground">Kostnad & lönsamhet per projekt</p>
+                  </div>
+                </div>
+                <ul className="text-sm space-y-2 text-muted-foreground">
+                  <li className="flex gap-2"><Check className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" /> Loggad tid på projekt → <span className="text-foreground">Kostnad = timmar × timpris</span></li>
+                  <li className="flex gap-2"><Check className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" /> Projektets budget jämförs automatiskt mot kostnaden</li>
+                  <li className="flex gap-2"><Check className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" /> Resterande budget visas i realtid med statusfärg</li>
+                  <li className="flex gap-2"><Check className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" /> Tid kan loggas direkt på varje uppgift för exakt spårning</li>
+                </ul>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
       )}
 
       {activeTab === 'roles' && (
