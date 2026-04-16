@@ -52,7 +52,7 @@ function saveTimeEntries(projectId: string, entries: TimeEntry[]) {
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getProject, updateProject, deleteProject } = useProjects();
+  const { getProject, updateProject, deleteProject, loading } = useProjects();
   const project = getProject(id || '');
 
   const [tasks, setTasksState] = useState<Task[]>(() => loadTasks(id || ''));
@@ -80,6 +80,14 @@ export default function ProjectDetail() {
       return next;
     });
   }, [id]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <p className="text-muted-foreground">Laddar projekt...</p>
+      </div>
+    );
+  }
 
   if (!project) {
     return (
