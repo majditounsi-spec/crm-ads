@@ -940,7 +940,7 @@ export default function Projects() {
           /* ========== TABLE VIEW ========== */
           <motion.div key="table" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="bg-card rounded-xl border shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full table-fixed min-w-[700px]">
+              <table className="w-full" style={{ tableLayout: 'fixed' }}>
                 <colgroup>
                   {visibleColumns.map(key => {
                     const col = allColumns.find(c => c.key === key);
@@ -956,6 +956,7 @@ export default function Projects() {
                       const isDragTarget = dragOverCol === key && dragCol !== key;
                       return (
                         <th key={key}
+                          style={{ width: col.width }}
                           draggable
                           onDragStart={() => handleColDragStart(key)}
                           onDragOver={(e) => handleColDragOver(e, key)}
@@ -975,7 +976,7 @@ export default function Projects() {
                         </th>
                       );
                     })}
-                    <th></th>
+                    <th style={{ width: '4%' }}></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -987,29 +988,24 @@ export default function Projects() {
                       <React.Fragment key={project.id}>
                         <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }}
                           className={`monday-row group ${isExpanded ? 'bg-muted/20' : ''}`}>
-                          {visibleColumns.map((key, ci) => (
-                            <td key={key} className={`py-2.5 align-middle overflow-hidden ${ci === 0 ? 'pl-3 pr-2' : 'px-3'}`}>
+                          {visibleColumns.map((key, ci) => {
+                            const col = allColumns.find(c => c.key === key);
+                            return (
+                            <td key={key} style={{ width: col?.width || '12%' }} className={`py-2.5 align-middle overflow-hidden ${ci === 0 ? 'pl-3 pr-2' : 'px-3'}`}>
                               {key === 'assignee' ? (
                                 <RenderAssigneeCell project={project} teamMembers={memberNames} updateProject={updateProject} />
-                              ) : ci === 0 ? (
+                              ) : key === 'name' ? (
                                 <div className="flex items-center gap-2 min-w-0">
                                   <button onClick={(e) => { e.stopPropagation(); toggleExpand(project.id); }}
-                                    className="shrink-0 p-0.5 rounded hover:bg-muted transition-colors -ml-0.5">
+                                    className="shrink-0 p-0.5 rounded hover:bg-muted transition-colors">
                                     {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
                                   </button>
                                   <div className="min-w-0 flex-1 cursor-pointer" onClick={() => navigate(`/projects/${project.id}`)}>
                                     <div className="text-sm font-semibold hover:text-primary transition-colors truncate">{project.name}</div>
-                                    {(tasks.length > 0 || project.tags.filter(t => !t.startsWith('deal:')).length > 0) && (
-                                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                                        {tasks.length > 0 && (
-                                          <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                                            <CheckCircle2 className="h-2.5 w-2.5" />{completedCount}/{tasks.length}
-                                          </span>
-                                        )}
-                                        {project.tags.filter(t => !t.startsWith('deal:')).slice(0, 3).map(tag => (
-                                          <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground">{tag}</span>
-                                        ))}
-                                      </div>
+                                    {tasks.length > 0 && (
+                                      <span className="text-[10px] text-muted-foreground flex items-center gap-0.5 mt-0.5">
+                                        <CheckCircle2 className="h-2.5 w-2.5" />{completedCount}/{tasks.length}
+                                      </span>
                                     )}
                                   </div>
                                 </div>
@@ -1017,8 +1013,9 @@ export default function Projects() {
                                 renderCell(project, key, navigate, updateProject, memberNames, hourlyRate)
                               )}
                             </td>
-                          ))}
-                          <td className="px-2 py-2.5">
+                            );
+                          })}
+                          <td className="px-2 py-2.5" style={{ width: '4%' }}>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100">
