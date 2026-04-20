@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Filter, Trash2, LayoutGrid, List, Calendar as CalendarIcon, Users, GripVertical, Clock, Columns3, Eye, EyeOff, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, ChevronDown, CheckCircle2, UserPlus, X } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Task } from '@/types/crm';
+import { Task, TimeEntry } from '@/types/crm';
 import { StatusBadge } from '@/components/StatusBadge';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { useProjects } from '@/hooks/useProjects';
@@ -20,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Project, ProjectStatus, ProjectPriority } from '@/types/crm';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
-import { useHourlyRate, getProjectHours, computeProfitability } from '@/hooks/useBilling';
+import { useHourlyRate, getProjectHours, getTaskHours, loadProjectTimeEntries, computeProfitability } from '@/hooks/useBilling';
 import { toast } from 'sonner';
 import {
   DndContext, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors,
@@ -241,6 +241,14 @@ function saveProjectTasks(projectId: string, tasks: Task[]) {
   } catch {}
 }
 
+function saveTimeEntry(projectId: string, entry: TimeEntry) {
+  const entries = loadProjectTimeEntries(projectId);
+  entries.push(entry);
+  try {
+    localStorage.setItem(`marketflow_time_${projectId}`, JSON.stringify(entries));
+  } catch {}
+}
+
 function RenderAssigneeCell({ project, teamMembers, updateProject }: { project: Project; teamMembers: string[]; updateProject: (id: string, updates: Partial<Project>) => void }) {
   const assignees = getProjectAssignees(project);
   return (
@@ -322,10 +330,14 @@ function renderCell(project: Project, col: ColumnKey, navigate: (path: string) =
       return <span className="text-xs font-medium tabular-nums truncate block">{profit.cost.toLocaleString('sv-SE')} kr</span>;
     case 'deadline':
       return (
-        <span className="text-xs flex items-center gap-1 truncate min-w-0">
-          <CalendarIcon className="h-3 w-3 text-muted-foreground shrink-0" />
-          <span className="truncate">{project.deadline || '—'}</span>
-        </span>
+        <div className="relative min-w-0 group/deadline">
+          <Input
+            type="date"
+            value={project.deadline || ''}
+            onChange={e => { updateProject(project.id, { deadline: e.target.value }); toast.success('Deadline uppdaterad'); }}
+            className="h-7 text-xs bg-transparent border-none shadow-none p-0 px-1 focus-visible:ring-1 cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0 group-hover/deadline:[&::-webkit-calendar-picker-indicator]:opacity-100"
+          />
+        </div>
       );
     case 'tags':
       return project.tags.length > 0 ? (
@@ -629,6 +641,8 @@ export default function Projects() {
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [projectTasks, setProjectTasks] = useState<Record<string, Task[]>>({});
   const [newTaskInputs, setNewTaskInputs] = useState<Record<string, string>>({});
+  const [timeLogInputs, setTimeLogInputs] = useState<Record<string, string>>({});
+  const [, forceUpdate] = useState(0);
 
   const toggleExpand = useCallback((projectId: string) => {
     setExpandedProjects(prev => {
@@ -683,6 +697,28 @@ export default function Projects() {
     });
     toast.success('Uppgift borttagen');
   }, []);
+
+  const logTimeForTask = useCallback((projectId: string, taskId: string, taskTitle: string) => {
+    const key = `${projectId}-${taskId}`;
+    const hoursStr = timeLogInputs[key]?.trim();
+    const hours = Number(hoursStr);
+    if (!hoursStr || isNaN(hours) || hours <= 0) return;
+    const project = projects.find(p => p.id === projectId);
+    const entry: TimeEntry = {
+      id: String(Date.now()),
+      projectId,
+      projectName: project?.name || '',
+      description: taskTitle,
+      hours,
+      date: new Date().toISOString().split('T')[0],
+      assignee: project?.assignee || '',
+      taskId,
+    };
+    saveTimeEntry(projectId, entry);
+    setTimeLogInputs(prev => ({ ...prev, [key]: '' }));
+    forceUpdate(n => n + 1);
+    toast.success(`${hours}h loggat på "${taskTitle}"`);
+  }, [timeLogInputs, projects]);
 
   const totalBudget = projects.reduce((s, p) => s + p.budget, 0);
   const activeCount = projects.filter(p => p.status !== 'done').length;
@@ -895,32 +931,32 @@ export default function Projects() {
         ) : viewMode === 'timeline' ? (
           /* ========== CALENDAR VIEW ========== */
           <motion.div key="calendar" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-            <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
+            <div className="bg-card rounded-2xl border shadow-sm overflow-hidden">
               {/* Month navigation */}
-              <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg"
+              <div className="flex items-center justify-between px-5 py-4 border-b">
+                <Button variant="ghost" size="sm" className="h-9 w-9 p-0 rounded-xl hover:bg-muted"
                   onClick={() => setCalendarMonth(prev => subMonths(prev, 1))}>
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-heading font-semibold capitalize">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-base font-heading font-bold capitalize tracking-tight">
                     {format(calendarMonth, 'MMMM yyyy', { locale: sv })}
                   </h3>
-                  <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] rounded-md"
+                  <Button variant="outline" size="sm" className="h-7 px-3 text-xs rounded-lg font-medium"
                     onClick={() => setCalendarMonth(new Date())}>
                     Idag
                   </Button>
                 </div>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg"
+                <Button variant="ghost" size="sm" className="h-9 w-9 p-0 rounded-xl hover:bg-muted"
                   onClick={() => setCalendarMonth(prev => addMonths(prev, 1))}>
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
 
               {/* Weekday headers */}
-              <div className="grid grid-cols-7 border-b">
-                {['Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör', 'Sön'].map(day => (
-                  <div key={day} className="text-center text-[11px] font-semibold text-muted-foreground uppercase tracking-wider py-2 border-r last:border-r-0">
+              <div className="grid grid-cols-7 bg-muted/40">
+                {['Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör', 'Sön'].map((day, i) => (
+                  <div key={day} className={`text-center text-[11px] font-semibold uppercase tracking-wider py-2.5 ${i >= 5 ? 'text-muted-foreground/60' : 'text-muted-foreground'}`}>
                     {day}
                   </div>
                 ))}
@@ -933,41 +969,65 @@ export default function Projects() {
                   const dayProjects = calendarData.projectsByDate.get(dateKey) || [];
                   const inCurrentMonth = isSameMonth(day, calendarData.monthStart);
                   const isCurrentDay = isToday(day);
+                  const dayOfWeek = day.getDay();
+                  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
                   return (
                     <div key={idx}
-                      className={`min-h-[110px] border-r border-b last:border-r-0 p-1.5 transition-colors ${!inCurrentMonth ? 'bg-muted/20' : 'bg-card'} ${isCurrentDay ? 'ring-2 ring-inset ring-primary/30 bg-primary/[0.03]' : ''}`}>
+                      className={`min-h-[120px] border-b border-r p-2 transition-colors
+                        ${!inCurrentMonth ? 'bg-muted/10' : isWeekend ? 'bg-muted/5' : 'bg-card'}
+                        ${isCurrentDay ? 'ring-2 ring-inset ring-primary/40' : ''}
+                        ${idx % 7 === 6 ? 'border-r-0' : ''}
+                      `}>
                       {/* Day number */}
-                      <div className="flex items-center justify-between mb-1">
-                        <span className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full ${isCurrentDay ? 'bg-primary text-primary-foreground' : ''} ${!inCurrentMonth ? 'text-muted-foreground/40' : 'text-foreground'}`}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className={`text-[11px] font-semibold w-6 h-6 flex items-center justify-center rounded-lg transition-colors
+                          ${isCurrentDay ? 'bg-primary text-primary-foreground shadow-sm' : ''}
+                          ${!inCurrentMonth ? 'text-muted-foreground/30' : isWeekend ? 'text-muted-foreground/60' : 'text-foreground'}
+                        `}>
                           {format(day, 'd')}
                         </span>
                         {dayProjects.length > 0 && (
-                          <span className="text-[9px] text-muted-foreground bg-muted rounded-full px-1.5">
+                          <span className="text-[9px] font-medium text-primary bg-primary/10 rounded-md px-1.5 py-0.5">
                             {dayProjects.length}
                           </span>
                         )}
                       </div>
 
                       {/* Project pills */}
-                      <div className="space-y-0.5">
+                      <div className="space-y-1">
                         {dayProjects.slice(0, 3).map(project => {
+                          const assignees = getProjectAssignees(project);
                           const hours = getProjectHours(project.id);
                           const profit = computeProfitability(project.budget, hours, hourlyRate);
                           const pct = Math.round(profit.budgetUsedPct);
                           return (
                             <div key={project.id}
                               onClick={() => navigate(`/projects/${project.id}`)}
-                              className={`text-[10px] leading-tight px-1.5 py-1 rounded-md cursor-pointer border-l-2 transition-all hover:shadow-sm ${statusColors[project.status]} ${project.priority === 'critical' ? 'bg-red-500/10 hover:bg-red-500/15' : project.priority === 'high' ? 'bg-amber-500/10 hover:bg-amber-500/15' : 'bg-muted/60 hover:bg-muted'}`}
+                              className={`text-[10px] leading-tight px-2 py-1.5 rounded-lg cursor-pointer border-l-[3px] transition-all hover:shadow-md hover:-translate-y-0.5 ${statusColors[project.status]} ${project.priority === 'critical' ? 'bg-red-500/10 hover:bg-red-500/15' : project.priority === 'high' ? 'bg-amber-500/10 hover:bg-amber-500/15' : 'bg-muted/50 hover:bg-muted/80'}`}
                               title={`${project.name}\n${project.client}\nStatus: ${statusLabels[project.status]}\nBudget: ${pct}% använt (${profit.cost.toLocaleString('sv-SE')} / ${project.budget.toLocaleString('sv-SE')} kr)`}
                             >
-                              <div className="font-medium truncate">{project.name}</div>
-                              <div className="text-muted-foreground truncate">{project.client}</div>
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="font-semibold truncate">{project.name}</span>
+                                {assignees.length > 0 && (
+                                  <div className="flex -space-x-1 shrink-0">
+                                    {assignees.slice(0, 2).map(name => (
+                                      <div key={name} className={`h-4 w-4 rounded-full ${getAvatarColor(name)} text-white text-[7px] font-bold flex items-center justify-center ring-1 ring-card`}>
+                                        {getInitials(name)}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex items-center justify-between mt-0.5">
+                                <span className="text-muted-foreground truncate">{project.client}</span>
+                                {hours > 0 && <span className="text-muted-foreground tabular-nums shrink-0">{hours.toFixed(0)}h</span>}
+                              </div>
                             </div>
                           );
                         })}
                         {dayProjects.length > 3 && (
-                          <div className="text-[9px] text-muted-foreground text-center py-0.5">
+                          <div className="text-[9px] text-primary font-medium text-center py-0.5 cursor-default">
                             +{dayProjects.length - 3} till
                           </div>
                         )}
@@ -978,18 +1038,13 @@ export default function Projects() {
               </div>
 
               {/* Legend */}
-              <div className="flex items-center gap-4 px-4 py-2.5 border-t bg-muted/20 flex-wrap">
-                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Status:</span>
+              <div className="flex items-center gap-5 px-5 py-3 border-t bg-muted/10 flex-wrap">
                 {statusOptions.map(s => (
                   <div key={s.value} className="flex items-center gap-1.5">
-                    <div className={`w-2 h-2 rounded-full ${statusDotColors[s.value]}`} />
-                    <span className="text-[10px] text-muted-foreground">{s.label}</span>
+                    <div className={`w-2.5 h-2.5 rounded-full ${statusDotColors[s.value]}`} />
+                    <span className="text-[11px] text-muted-foreground font-medium">{s.label}</span>
                   </div>
                 ))}
-                <span className="text-[10px] text-muted-foreground ml-auto">
-                  Prioritet: <span className="bg-red-500/10 px-1 rounded text-red-600 text-[10px]">Kritisk</span>
-                  {' '}<span className="bg-amber-500/10 px-1 rounded text-amber-600 text-[10px]">Hög</span>
-                </span>
               </div>
             </div>
           </motion.div>
@@ -1087,21 +1142,47 @@ export default function Projects() {
                           {/* Subtask rows */}
                           {isExpanded && (
                             <div className="divide-y">
-                              {tasks.map(task => (
-                                <div key={task.id} className="bg-muted/10 hover:bg-muted/20 transition-colors group/task flex items-center justify-between px-3 py-1.5 pl-12">
-                                  <div className="flex items-center gap-2">
-                                    <Checkbox checked={task.completed} onCheckedChange={() => toggleTask(project.id, task.id)} />
-                                    <span className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
+                              {tasks.map(task => {
+                                const taskHrs = getTaskHours(project.id, task.id);
+                                const timeKey = `${project.id}-${task.id}`;
+                                return (
+                                  <div key={task.id} className="bg-muted/10 hover:bg-muted/20 transition-colors group/task px-3 py-2 pl-12">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                                        <Checkbox checked={task.completed} onCheckedChange={() => toggleTask(project.id, task.id)} />
+                                        <span className={`text-sm truncate ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
+                                      </div>
+                                      <div className="flex items-center gap-3 shrink-0">
+                                        {taskHrs > 0 && (
+                                          <span className="text-[10px] text-muted-foreground flex items-center gap-1 tabular-nums bg-muted/60 rounded-full px-2 py-0.5">
+                                            <Clock className="h-2.5 w-2.5" />{taskHrs.toFixed(1)}h
+                                          </span>
+                                        )}
+                                        <div className="flex items-center gap-1">
+                                          <Input
+                                            type="number"
+                                            step="0.25"
+                                            min="0"
+                                            value={timeLogInputs[timeKey] || ''}
+                                            onChange={e => setTimeLogInputs(prev => ({ ...prev, [timeKey]: e.target.value }))}
+                                            placeholder="0h"
+                                            className="h-6 w-14 text-[10px] text-center bg-transparent border-muted shadow-none focus-visible:ring-1 rounded-md px-1"
+                                            onKeyDown={e => e.key === 'Enter' && logTimeForTask(project.id, task.id, task.title)}
+                                          />
+                                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => logTimeForTask(project.id, task.id, task.title)}>
+                                            <Plus className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                        <span className="text-xs text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" />{task.assignee || '—'}</span>
+                                        <button onClick={() => deleteTask(project.id, task.id)}
+                                          className="opacity-0 group-hover/task:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/10">
+                                          <Trash2 className="h-3 w-3 text-destructive" />
+                                        </button>
+                                      </div>
+                                    </div>
                                   </div>
-                                  <div className="flex items-center gap-3">
-                                    <span className="text-xs text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" />{task.assignee || '—'}</span>
-                                    <button onClick={() => deleteTask(project.id, task.id)}
-                                      className="opacity-0 group-hover/task:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/10">
-                                      <Trash2 className="h-3 w-3 text-destructive" />
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                               <div className="bg-muted/10 px-3 py-1.5 pl-12">
                                 <div className="flex items-center gap-2">
                                   <Input value={newTaskInputs[project.id] || ''} onChange={e => setNewTaskInputs(prev => ({ ...prev, [project.id]: e.target.value }))}
