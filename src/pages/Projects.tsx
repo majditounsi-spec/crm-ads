@@ -937,26 +937,25 @@ export default function Projects() {
           </motion.div>
 
         ) : (
-          /* ========== TABLE VIEW ========== */
+          /* ========== TABLE VIEW (CSS Grid) ========== */
           <motion.div key="table" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="bg-card rounded-xl border shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full" style={{ tableLayout: 'fixed' }}>
-                <colgroup>
-                  {visibleColumns.map(key => {
-                    const col = allColumns.find(c => c.key === key);
-                    return <col key={key} style={{ width: col?.width || '12%' }} />;
-                  })}
-                  <col style={{ width: '4%' }} />
-                </colgroup>
-                <thead>
-                  <tr className="border-b bg-muted/30">
+            {(() => {
+              const gridCols = visibleColumns.map(key => {
+                const col = allColumns.find(c => c.key === key);
+                return col?.width || '1fr';
+              });
+              gridCols.push('40px');
+              const gridTemplate = gridCols.join(' ');
+              return (
+                <div className="overflow-x-auto">
+                  {/* Header */}
+                  <div className="border-b bg-muted/30" style={{ display: 'grid', gridTemplateColumns: gridTemplate }}>
                     {visibleColumns.map((key, hi) => {
                       const col = allColumns.find(c => c.key === key)!;
                       const isSorted = sortColumn === key;
                       const isDragTarget = dragOverCol === key && dragCol !== key;
                       return (
-                        <th key={key}
-                          style={{ width: col.width }}
+                        <div key={key}
                           draggable
                           onDragStart={() => handleColDragStart(key)}
                           onDragOver={(e) => handleColDragOver(e, key)}
@@ -973,87 +972,79 @@ export default function Projects() {
                                 : <ArrowDown className="h-3 w-3 text-primary shrink-0" />
                             )}
                           </div>
-                        </th>
+                        </div>
                       );
                     })}
-                    <th style={{ width: '4%' }}></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {filtered.map((project, i) => {
-                    const isExpanded = expandedProjects.has(project.id);
-                    const tasks = projectTasks[project.id] || [];
-                    const completedCount = tasks.filter(t => t.completed).length;
-                    return (
-                      <React.Fragment key={project.id}>
-                        <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }}
-                          className={`monday-row group ${isExpanded ? 'bg-muted/20' : ''}`}>
-                          {visibleColumns.map((key, ci) => {
-                            const col = allColumns.find(c => c.key === key);
-                            return (
-                            <td key={key} style={{ width: col?.width || '12%' }} className={`py-2.5 align-middle overflow-hidden ${ci === 0 ? 'pl-3 pr-2' : 'px-3'}`}>
-                              {key === 'assignee' ? (
-                                <RenderAssigneeCell project={project} teamMembers={memberNames} updateProject={updateProject} />
-                              ) : key === 'name' ? (
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <button onClick={(e) => { e.stopPropagation(); toggleExpand(project.id); }}
-                                    className="shrink-0 p-0.5 rounded hover:bg-muted transition-colors">
-                                    {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
-                                  </button>
-                                  <div className="min-w-0 flex-1 cursor-pointer" onClick={() => navigate(`/projects/${project.id}`)}>
-                                    <div className="text-sm font-semibold hover:text-primary transition-colors truncate">{project.name}</div>
-                                    {tasks.length > 0 && (
-                                      <span className="text-[10px] text-muted-foreground flex items-center gap-0.5 mt-0.5">
-                                        <CheckCircle2 className="h-2.5 w-2.5" />{completedCount}/{tasks.length}
-                                      </span>
-                                    )}
+                    <div />
+                  </div>
+                  {/* Body */}
+                  <div className="divide-y">
+                    {filtered.map((project, i) => {
+                      const isExpanded = expandedProjects.has(project.id);
+                      const tasks = projectTasks[project.id] || [];
+                      const completedCount = tasks.filter(t => t.completed).length;
+                      return (
+                        <div key={project.id}>
+                          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }}
+                            className={`monday-row group ${isExpanded ? 'bg-muted/20' : ''}`}
+                            style={{ display: 'grid', gridTemplateColumns: gridTemplate, alignItems: 'center' }}>
+                            {visibleColumns.map((key, ci) => (
+                              <div key={key} className={`py-2.5 overflow-hidden min-w-0 ${ci === 0 ? 'pl-3 pr-2' : 'px-3'}`}>
+                                {key === 'assignee' ? (
+                                  <RenderAssigneeCell project={project} teamMembers={memberNames} updateProject={updateProject} />
+                                ) : key === 'name' ? (
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <button onClick={(e) => { e.stopPropagation(); toggleExpand(project.id); }}
+                                      className="shrink-0 p-0.5 rounded hover:bg-muted transition-colors">
+                                      {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                                    </button>
+                                    <div className="min-w-0 flex-1 cursor-pointer" onClick={() => navigate(`/projects/${project.id}`)}>
+                                      <div className="text-sm font-semibold hover:text-primary transition-colors truncate">{project.name}</div>
+                                      {tasks.length > 0 && (
+                                        <span className="text-[10px] text-muted-foreground flex items-center gap-0.5 mt-0.5">
+                                          <CheckCircle2 className="h-2.5 w-2.5" />{completedCount}/{tasks.length}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
-                              ) : (
-                                renderCell(project, key, navigate, updateProject, memberNames, hourlyRate)
-                              )}
-                            </td>
-                            );
-                          })}
-                          <td className="px-2 py-2.5" style={{ width: '4%' }}>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100">
-                                  <Trash2 className="h-3 w-3 text-destructive" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader><AlertDialogTitle>Ta bort projekt?</AlertDialogTitle><AlertDialogDescription>Ta bort {project.name}?</AlertDialogDescription></AlertDialogHeader>
-                                <AlertDialogFooter><AlertDialogCancel>Avbryt</AlertDialogCancel><AlertDialogAction className="bg-destructive text-destructive-foreground" onClick={() => handleDelete(project.id)}>Ta bort</AlertDialogAction></AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </td>
-                        </motion.tr>
-                        {/* Subtask rows */}
-                        {isExpanded && (
-                          <>
-                            {tasks.map(task => (
-                              <tr key={task.id} className="bg-muted/10 hover:bg-muted/20 transition-colors group/task">
-                                <td colSpan={Math.ceil(visibleColumns.length / 2)} className="px-3 py-1.5 pl-12">
+                                ) : (
+                                  renderCell(project, key, navigate, updateProject, memberNames, hourlyRate)
+                                )}
+                              </div>
+                            ))}
+                            <div className="px-2 py-2.5">
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100">
+                                    <Trash2 className="h-3 w-3 text-destructive" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader><AlertDialogTitle>Ta bort projekt?</AlertDialogTitle><AlertDialogDescription>Ta bort {project.name}?</AlertDialogDescription></AlertDialogHeader>
+                                  <AlertDialogFooter><AlertDialogCancel>Avbryt</AlertDialogCancel><AlertDialogAction className="bg-destructive text-destructive-foreground" onClick={() => handleDelete(project.id)}>Ta bort</AlertDialogAction></AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </motion.div>
+                          {/* Subtask rows */}
+                          {isExpanded && (
+                            <div className="divide-y">
+                              {tasks.map(task => (
+                                <div key={task.id} className="bg-muted/10 hover:bg-muted/20 transition-colors group/task flex items-center justify-between px-3 py-1.5 pl-12">
                                   <div className="flex items-center gap-2">
                                     <Checkbox checked={task.completed} onCheckedChange={() => toggleTask(project.id, task.id)} />
                                     <span className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
                                   </div>
-                                </td>
-                                <td colSpan={visibleColumns.length - Math.ceil(visibleColumns.length / 2)} className="px-3 py-1.5">
-                                  <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
                                     <span className="text-xs text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" />{task.assignee || '—'}</span>
                                     <button onClick={() => deleteTask(project.id, task.id)}
                                       className="opacity-0 group-hover/task:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/10">
                                       <Trash2 className="h-3 w-3 text-destructive" />
                                     </button>
                                   </div>
-                                </td>
-                                <td></td>
-                              </tr>
-                            ))}
-                            <tr className="bg-muted/10">
-                              <td colSpan={visibleColumns.length + 1} className="px-3 py-1.5 pl-12">
+                                </div>
+                              ))}
+                              <div className="bg-muted/10 px-3 py-1.5 pl-12">
                                 <div className="flex items-center gap-2">
                                   <Input value={newTaskInputs[project.id] || ''} onChange={e => setNewTaskInputs(prev => ({ ...prev, [project.id]: e.target.value }))}
                                     placeholder="Lägg till uppgift..." className="h-7 text-sm bg-transparent border-none shadow-none focus-visible:ring-1 flex-1 max-w-sm"
@@ -1062,16 +1053,16 @@ export default function Projects() {
                                     <Plus className="h-3 w-3" />
                                   </Button>
                                 </div>
-                              </td>
-                            </tr>
-                          </>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
           </motion.div>
         )}
       </AnimatePresence>
