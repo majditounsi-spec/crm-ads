@@ -31,6 +31,7 @@ export interface Task {
   completed: boolean;
   assignee: string;
   createdAt: string;
+  dueDate?: string;
 }
 
 export interface TimeEntry {

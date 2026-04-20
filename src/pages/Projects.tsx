@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Filter, Trash2, LayoutGrid, List, Calendar as CalendarIcon, Users, GripVertical, Clock, Columns3, Eye, EyeOff, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, ChevronDown, CheckCircle2, UserPlus, X } from 'lucide-react';
+import { Plus, Filter, Trash2, LayoutGrid, List, Calendar as CalendarIcon, Users, GripVertical, Clock, Columns3, Eye, EyeOff, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, ChevronDown, CheckCircle2, UserPlus, X, Play, Square, Timer } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Task, TimeEntry } from '@/types/crm';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -247,6 +247,14 @@ function saveTimeEntry(projectId: string, entry: TimeEntry) {
   try {
     localStorage.setItem(`marketflow_time_${projectId}`, JSON.stringify(entries));
   } catch {}
+}
+
+function formatElapsed(ms: number): string {
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
 function RenderAssigneeCell({ project, teamMembers, updateProject }: { project: Project; teamMembers: string[]; updateProject: (id: string, updates: Partial<Project>) => void }) {
@@ -644,6 +652,44 @@ export default function Projects() {
   const [timeLogInputs, setTimeLogInputs] = useState<Record<string, string>>({});
   const [, forceUpdate] = useState(0);
 
+  // Timer state (Clockify-style)
+  const [activeTimer, setActiveTimer] = useState<{ projectId: string; taskId: string; taskTitle: string; startTime: number } | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    if (!activeTimer) { setElapsed(0); return; }
+    const tick = () => setElapsed(Date.now() - activeTimer.startTime);
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [activeTimer]);
+
+  const startTimer = useCallback((projectId: string, taskId: string, taskTitle: string) => {
+    setActiveTimer({ projectId, taskId, taskTitle, startTime: Date.now() });
+  }, []);
+
+  const stopTimer = useCallback(() => {
+    if (!activeTimer) return;
+    const hours = (Date.now() - activeTimer.startTime) / 3600000;
+    if (hours < 0.01) { setActiveTimer(null); return; }
+    const project = projects.find(p => p.id === activeTimer.projectId);
+    const entry: TimeEntry = {
+      id: String(Date.now()),
+      projectId: activeTimer.projectId,
+      projectName: project?.name || '',
+      description: activeTimer.taskTitle,
+      hours: Math.round(hours * 100) / 100,
+      date: new Date().toISOString().split('T')[0],
+      assignee: project?.assignee || '',
+      taskId: activeTimer.taskId,
+    };
+    saveTimeEntry(activeTimer.projectId, entry);
+    const h = entry.hours;
+    toast.success(`${h >= 1 ? h.toFixed(1) + 'h' : Math.round(h * 60) + 'min'} loggat på "${activeTimer.taskTitle}"`);
+    setActiveTimer(null);
+    forceUpdate(n => n + 1);
+  }, [activeTimer, projects]);
+
   const toggleExpand = useCallback((projectId: string) => {
     setExpandedProjects(prev => {
       const next = new Set(prev);
@@ -723,7 +769,7 @@ export default function Projects() {
   const totalBudget = projects.reduce((s, p) => s + p.budget, 0);
   const activeCount = projects.filter(p => p.status !== 'done').length;
 
-  // Calendar data
+  // Calendar data — includes both project deadlines and task due dates
   const calendarData = useMemo(() => {
     const monthStart = startOfMonth(calendarMonth);
     const monthEnd = endOfMonth(calendarMonth);
@@ -734,13 +780,22 @@ export default function Projects() {
     const projectsByDate = new Map<string, Project[]>();
     filtered.forEach(p => {
       if (!p.deadline) return;
-      const key = p.deadline;
-      if (!projectsByDate.has(key)) projectsByDate.set(key, []);
-      projectsByDate.get(key)!.push(p);
+      if (!projectsByDate.has(p.deadline)) projectsByDate.set(p.deadline, []);
+      projectsByDate.get(p.deadline)!.push(p);
     });
 
-    return { days, projectsByDate, monthStart };
-  }, [calendarMonth, filtered]);
+    const tasksByDate = new Map<string, { task: Task; project: Project }[]>();
+    filtered.forEach(p => {
+      const tasks = projectTasks[p.id] || [];
+      tasks.forEach(t => {
+        if (!t.dueDate) return;
+        if (!tasksByDate.has(t.dueDate)) tasksByDate.set(t.dueDate, []);
+        tasksByDate.get(t.dueDate)!.push({ task: t, project: p });
+      });
+    });
+
+    return { days, projectsByDate, tasksByDate, monthStart };
+  }, [calendarMonth, filtered, projectTasks]);
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
@@ -967,6 +1022,8 @@ export default function Projects() {
                 {calendarData.days.map((day, idx) => {
                   const dateKey = format(day, 'yyyy-MM-dd');
                   const dayProjects = calendarData.projectsByDate.get(dateKey) || [];
+                  const dayTasks = calendarData.tasksByDate.get(dateKey) || [];
+                  const totalItems = dayProjects.length + dayTasks.length;
                   const inCurrentMonth = isSameMonth(day, calendarData.monthStart);
                   const isCurrentDay = isToday(day);
                   const dayOfWeek = day.getDay();
@@ -987,14 +1044,14 @@ export default function Projects() {
                         `}>
                           {format(day, 'd')}
                         </span>
-                        {dayProjects.length > 0 && (
+                        {totalItems > 0 && (
                           <span className="text-[9px] font-medium text-primary bg-primary/10 rounded-md px-1.5 py-0.5">
-                            {dayProjects.length}
+                            {totalItems}
                           </span>
                         )}
                       </div>
 
-                      {/* Project pills */}
+                      {/* Project + Task pills */}
                       <div className="space-y-1">
                         {dayProjects.slice(0, 3).map(project => {
                           const assignees = getProjectAssignees(project);
@@ -1005,7 +1062,7 @@ export default function Projects() {
                             <div key={project.id}
                               onClick={() => navigate(`/projects/${project.id}`)}
                               className={`text-[10px] leading-tight px-2 py-1.5 rounded-lg cursor-pointer border-l-[3px] transition-all hover:shadow-md hover:-translate-y-0.5 ${statusColors[project.status]} ${project.priority === 'critical' ? 'bg-red-500/10 hover:bg-red-500/15' : project.priority === 'high' ? 'bg-amber-500/10 hover:bg-amber-500/15' : 'bg-muted/50 hover:bg-muted/80'}`}
-                              title={`${project.name}\n${project.client}\nStatus: ${statusLabels[project.status]}\nBudget: ${pct}% använt (${profit.cost.toLocaleString('sv-SE')} / ${project.budget.toLocaleString('sv-SE')} kr)`}
+                              title={`Projekt: ${project.name}\n${project.client}\nStatus: ${statusLabels[project.status]}\nBudget: ${pct}% använt`}
                             >
                               <div className="flex items-center justify-between gap-1">
                                 <span className="font-semibold truncate">{project.name}</span>
@@ -1026,9 +1083,22 @@ export default function Projects() {
                             </div>
                           );
                         })}
-                        {dayProjects.length > 3 && (
+                        {dayTasks.slice(0, Math.max(0, 3 - dayProjects.length)).map(({ task, project: tp }) => (
+                          <div key={task.id}
+                            onClick={() => navigate(`/projects/${tp.id}`)}
+                            className={`text-[10px] leading-tight px-2 py-1 rounded-lg cursor-pointer border-l-[3px] border-l-violet-400 transition-all hover:shadow-md hover:-translate-y-0.5 ${task.completed ? 'bg-muted/30 line-through text-muted-foreground' : 'bg-violet-500/10 hover:bg-violet-500/15'}`}
+                            title={`Uppgift: ${task.title}\nProjekt: ${tp.name}`}
+                          >
+                            <div className="flex items-center gap-1">
+                              <CheckCircle2 className={`h-2.5 w-2.5 shrink-0 ${task.completed ? 'text-emerald-500' : 'text-violet-400'}`} />
+                              <span className="font-medium truncate">{task.title}</span>
+                            </div>
+                            <div className="text-muted-foreground truncate pl-3.5">{tp.name}</div>
+                          </div>
+                        ))}
+                        {totalItems > 3 && (
                           <div className="text-[9px] text-primary font-medium text-center py-0.5 cursor-default">
-                            +{dayProjects.length - 3} till
+                            +{totalItems - 3} till
                           </div>
                         )}
                       </div>
@@ -1145,20 +1215,54 @@ export default function Projects() {
                               {tasks.map(task => {
                                 const taskHrs = getTaskHours(project.id, task.id);
                                 const timeKey = `${project.id}-${task.id}`;
+                                const isTimerActive = activeTimer?.projectId === project.id && activeTimer?.taskId === task.id;
                                 return (
-                                  <div key={task.id} className="bg-muted/10 hover:bg-muted/20 transition-colors group/task px-3 py-2 pl-12">
-                                    <div className="flex items-center justify-between">
+                                  <div key={task.id} className={`group/task px-3 py-2.5 pl-12 transition-colors ${isTimerActive ? 'bg-primary/5' : 'bg-muted/10 hover:bg-muted/20'}`}>
+                                    <div className="flex items-center justify-between gap-2">
+                                      {/* Left: checkbox + title */}
                                       <div className="flex items-center gap-2 flex-1 min-w-0">
                                         <Checkbox checked={task.completed} onCheckedChange={() => toggleTask(project.id, task.id)} />
                                         <span className={`text-sm truncate ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
                                       </div>
-                                      <div className="flex items-center gap-3 shrink-0">
-                                        {taskHrs > 0 && (
-                                          <span className="text-[10px] text-muted-foreground flex items-center gap-1 tabular-nums bg-muted/60 rounded-full px-2 py-0.5">
-                                            <Clock className="h-2.5 w-2.5" />{taskHrs.toFixed(1)}h
-                                          </span>
+                                      {/* Right: timer controls + meta */}
+                                      <div className="flex items-center gap-2 shrink-0">
+                                        {/* Due date */}
+                                        <Input
+                                          type="date"
+                                          value={task.dueDate || ''}
+                                          onChange={e => {
+                                            setProjectTasks(prev => {
+                                              const updated = (prev[project.id] || []).map(t => t.id === task.id ? { ...t, dueDate: e.target.value } : t);
+                                              saveProjectTasks(project.id, updated);
+                                              return { ...prev, [project.id]: updated };
+                                            });
+                                          }}
+                                          className="h-6 w-[110px] text-[10px] bg-transparent border-muted shadow-none focus-visible:ring-1 rounded-md px-1.5 [&::-webkit-calendar-picker-indicator]:opacity-0 hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
+                                          title="Deadline för uppgift"
+                                        />
+
+                                        {/* Total logged badge */}
+                                        <span className={`text-[10px] tabular-nums flex items-center gap-1 rounded-md px-2 py-0.5 font-medium ${taskHrs > 0 ? 'bg-muted text-foreground' : 'text-muted-foreground'}`}>
+                                          <Clock className="h-2.5 w-2.5" />{taskHrs.toFixed(1)}h
+                                        </span>
+
+                                        {/* Timer button */}
+                                        {isTimerActive ? (
+                                          <button onClick={stopTimer}
+                                            className="flex items-center gap-1.5 h-7 px-2.5 rounded-lg bg-red-500 text-white text-[11px] font-semibold tabular-nums hover:bg-red-600 transition-colors shadow-sm">
+                                            <Square className="h-3 w-3 fill-current" />
+                                            <span>{formatElapsed(elapsed)}</span>
+                                          </button>
+                                        ) : (
+                                          <button onClick={() => startTimer(project.id, task.id, task.title)}
+                                            className="flex items-center gap-1 h-7 px-2 rounded-lg bg-primary/10 text-primary text-[11px] font-medium hover:bg-primary/20 transition-colors"
+                                            title="Starta timer">
+                                            <Play className="h-3 w-3 fill-current" />
+                                          </button>
                                         )}
-                                        <div className="flex items-center gap-1">
+
+                                        {/* Manual time entry */}
+                                        <div className="flex items-center border rounded-lg overflow-hidden">
                                           <Input
                                             type="number"
                                             step="0.25"
@@ -1166,14 +1270,15 @@ export default function Projects() {
                                             value={timeLogInputs[timeKey] || ''}
                                             onChange={e => setTimeLogInputs(prev => ({ ...prev, [timeKey]: e.target.value }))}
                                             placeholder="0h"
-                                            className="h-6 w-14 text-[10px] text-center bg-transparent border-muted shadow-none focus-visible:ring-1 rounded-md px-1"
+                                            className="h-7 w-14 text-[11px] text-center bg-transparent border-none shadow-none focus-visible:ring-0 px-1"
                                             onKeyDown={e => e.key === 'Enter' && logTimeForTask(project.id, task.id, task.title)}
                                           />
-                                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => logTimeForTask(project.id, task.id, task.title)}>
+                                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0 rounded-none border-l hover:bg-primary/10 hover:text-primary" onClick={() => logTimeForTask(project.id, task.id, task.title)}>
                                             <Plus className="h-3 w-3" />
                                           </Button>
                                         </div>
-                                        <span className="text-xs text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" />{task.assignee || '—'}</span>
+
+                                        {/* Delete */}
                                         <button onClick={() => deleteTask(project.id, task.id)}
                                           className="opacity-0 group-hover/task:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/10">
                                           <Trash2 className="h-3 w-3 text-destructive" />
