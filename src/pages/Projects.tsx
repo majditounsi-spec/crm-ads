@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Filter, Trash2, LayoutGrid, List, Calendar, Users, GripVertical, Clock, Columns3, Eye, EyeOff, ArrowUp, ArrowDown, ChevronRight, ChevronDown, CheckCircle2, UserPlus, X } from 'lucide-react';
+import { Plus, Filter, Trash2, LayoutGrid, List, Calendar as CalendarIcon, Users, GripVertical, Clock, Columns3, Eye, EyeOff, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, ChevronDown, CheckCircle2, UserPlus, X } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Task } from '@/types/crm';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -29,6 +29,12 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useDroppable } from '@dnd-kit/core';
+import {
+  startOfMonth, endOfMonth, startOfWeek, endOfWeek,
+  eachDayOfInterval, format, addMonths, subMonths,
+  isSameMonth, isSameDay, isToday,
+} from 'date-fns';
+import { sv } from 'date-fns/locale';
 
 // ── Avatar helpers (Monday.com style) ──
 const avatarColors = [
@@ -317,7 +323,7 @@ function renderCell(project: Project, col: ColumnKey, navigate: (path: string) =
     case 'deadline':
       return (
         <span className="text-xs flex items-center gap-1 truncate min-w-0">
-          <Calendar className="h-3 w-3 text-muted-foreground shrink-0" />
+          <CalendarIcon className="h-3 w-3 text-muted-foreground shrink-0" />
           <span className="truncate">{project.deadline || '—'}</span>
         </span>
       );
@@ -382,7 +388,7 @@ function SortableCard({ project, navigate, onDelete }: { project: Project; navig
               )}
               {getProjectAssignees(project).length === 0 && <span className="text-muted-foreground">Ej tilldelad</span>}
             </div>
-            <div className="flex items-center gap-1"><Calendar className="h-3 w-3" />{project.deadline}</div>
+            <div className="flex items-center gap-1"><CalendarIcon className="h-3 w-3" />{project.deadline}</div>
           </div>
         </div>
       </div>
@@ -445,8 +451,9 @@ export default function Projects() {
   const { memberNames } = useTeamMembers();
   const { rate: hourlyRate } = useHourlyRate();
   const [filter, setFilter] = useState<ProjectStatus | 'all'>('all');
-  const [viewMode, setViewMode] = useState<ViewMode>('kanban');
+  const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
   const [activeId, setActiveId] = useState<string | null>(null);
   const [newProject, setNewProject] = useState({ name: '', client: '', status: 'pending' as ProjectStatus, priority: 'medium' as ProjectPriority, deadline: '', budget: '', assignee: '', assignees: [] as string[] });
   const [visibleColumns, setVisibleColumns] = useState<ColumnKey[]>(loadColumnConfig);
@@ -680,25 +687,24 @@ export default function Projects() {
   const totalBudget = projects.reduce((s, p) => s + p.budget, 0);
   const activeCount = projects.filter(p => p.status !== 'done').length;
 
-  // Timeline data
-  const timelineProjects = useMemo(() => {
-    return [...filtered].sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
-  }, [filtered]);
+  // Calendar data
+  const calendarData = useMemo(() => {
+    const monthStart = startOfMonth(calendarMonth);
+    const monthEnd = endOfMonth(calendarMonth);
+    const calStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+    const calEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
+    const days = eachDayOfInterval({ start: calStart, end: calEnd });
 
-  const timelineMonths = useMemo(() => {
-    const months = new Map<string, Project[]>();
-    timelineProjects.forEach(p => {
-      const d = new Date(p.deadline);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const label = d.toLocaleDateString('sv-SE', { year: 'numeric', month: 'long' });
-      if (!months.has(key)) months.set(key, []);
-      months.get(key)!.push(p);
+    const projectsByDate = new Map<string, Project[]>();
+    filtered.forEach(p => {
+      if (!p.deadline) return;
+      const key = p.deadline;
+      if (!projectsByDate.has(key)) projectsByDate.set(key, []);
+      projectsByDate.get(key)!.push(p);
     });
-    return Array.from(months.entries()).map(([key, projs]) => {
-      const d = new Date(projs[0].deadline);
-      return { key, label: d.toLocaleDateString('sv-SE', { year: 'numeric', month: 'long' }), projects: projs };
-    });
-  }, [timelineProjects]);
+
+    return { days, projectsByDate, monthStart };
+  }, [calendarMonth, filtered]);
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
@@ -778,7 +784,7 @@ export default function Projects() {
             {([
               { mode: 'table' as ViewMode, icon: List, label: 'Tabell' },
               { mode: 'kanban' as ViewMode, icon: LayoutGrid, label: 'Kanban' },
-              { mode: 'timeline' as ViewMode, icon: Clock, label: 'Tidslinje' },
+              { mode: 'timeline' as ViewMode, icon: CalendarIcon, label: 'Kalender' },
             ]).map(v => (
               <Button key={v.mode} variant={viewMode === v.mode ? 'default' : 'ghost'} size="sm"
                 className={`h-7 px-2.5 gap-1.5 rounded-md text-xs ${viewMode === v.mode ? 'bg-primary text-white shadow-sm' : ''}`}
@@ -887,53 +893,105 @@ export default function Projects() {
           </motion.div>
 
         ) : viewMode === 'timeline' ? (
-          /* ========== TIMELINE VIEW ========== */
-          <motion.div key="timeline" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="space-y-6">
-            {timelineMonths.length === 0 && <p className="text-sm text-muted-foreground text-center py-12">Inga projekt att visa</p>}
-            {timelineMonths.map(month => (
-              <div key={month.key}>
-                <h3 className="text-sm font-heading font-semibold text-muted-foreground uppercase tracking-wider mb-3 capitalize">{month.label}</h3>
-                <div className="relative pl-6 border-l-2 border-muted space-y-3">
-                  {month.projects.map(project => {
-                    const pct = project.budget > 0 ? Math.round((project.spent / project.budget) * 100) : 0;
-                    const daysLeft = Math.ceil((new Date(project.deadline).getTime() - Date.now()) / 86400000);
-                    return (
-                      <div key={project.id}
-                        className={`relative bg-card rounded-xl border border-l-[3px] ${statusColors[project.status]} p-4 cursor-pointer hover:shadow-md transition-shadow`}
-                        onClick={() => navigate(`/projects/${project.id}`)}
-                      >
-                        <div className={`absolute -left-[25px] w-3 h-3 rounded-full border-2 border-card ${statusDotColors[project.status]}`} />
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium text-sm">{project.name}</p>
-                              <StatusBadge status={project.status} />
-                              <PriorityBadge priority={project.priority} />
+          /* ========== CALENDAR VIEW ========== */
+          <motion.div key="calendar" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+            <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
+              {/* Month navigation */}
+              <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg"
+                  onClick={() => setCalendarMonth(prev => subMonths(prev, 1))}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-heading font-semibold capitalize">
+                    {format(calendarMonth, 'MMMM yyyy', { locale: sv })}
+                  </h3>
+                  <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] rounded-md"
+                    onClick={() => setCalendarMonth(new Date())}>
+                    Idag
+                  </Button>
+                </div>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg"
+                  onClick={() => setCalendarMonth(prev => addMonths(prev, 1))}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Weekday headers */}
+              <div className="grid grid-cols-7 border-b">
+                {['Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör', 'Sön'].map(day => (
+                  <div key={day} className="text-center text-[11px] font-semibold text-muted-foreground uppercase tracking-wider py-2 border-r last:border-r-0">
+                    {day}
+                  </div>
+                ))}
+              </div>
+
+              {/* Day grid */}
+              <div className="grid grid-cols-7">
+                {calendarData.days.map((day, idx) => {
+                  const dateKey = format(day, 'yyyy-MM-dd');
+                  const dayProjects = calendarData.projectsByDate.get(dateKey) || [];
+                  const inCurrentMonth = isSameMonth(day, calendarData.monthStart);
+                  const isCurrentDay = isToday(day);
+
+                  return (
+                    <div key={idx}
+                      className={`min-h-[110px] border-r border-b last:border-r-0 p-1.5 transition-colors ${!inCurrentMonth ? 'bg-muted/20' : 'bg-card'} ${isCurrentDay ? 'ring-2 ring-inset ring-primary/30 bg-primary/[0.03]' : ''}`}>
+                      {/* Day number */}
+                      <div className="flex items-center justify-between mb-1">
+                        <span className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full ${isCurrentDay ? 'bg-primary text-primary-foreground' : ''} ${!inCurrentMonth ? 'text-muted-foreground/40' : 'text-foreground'}`}>
+                          {format(day, 'd')}
+                        </span>
+                        {dayProjects.length > 0 && (
+                          <span className="text-[9px] text-muted-foreground bg-muted rounded-full px-1.5">
+                            {dayProjects.length}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Project pills */}
+                      <div className="space-y-0.5">
+                        {dayProjects.slice(0, 3).map(project => {
+                          const hours = getProjectHours(project.id);
+                          const profit = computeProfitability(project.budget, hours, hourlyRate);
+                          const pct = Math.round(profit.budgetUsedPct);
+                          return (
+                            <div key={project.id}
+                              onClick={() => navigate(`/projects/${project.id}`)}
+                              className={`text-[10px] leading-tight px-1.5 py-1 rounded-md cursor-pointer border-l-2 transition-all hover:shadow-sm ${statusColors[project.status]} ${project.priority === 'critical' ? 'bg-red-500/10 hover:bg-red-500/15' : project.priority === 'high' ? 'bg-amber-500/10 hover:bg-amber-500/15' : 'bg-muted/60 hover:bg-muted'}`}
+                              title={`${project.name}\n${project.client}\nStatus: ${statusLabels[project.status]}\nBudget: ${pct}% använt (${profit.cost.toLocaleString('sv-SE')} / ${project.budget.toLocaleString('sv-SE')} kr)`}
+                            >
+                              <div className="font-medium truncate">{project.name}</div>
+                              <div className="text-muted-foreground truncate">{project.client}</div>
                             </div>
-                            <p className="text-xs text-muted-foreground mt-1">{project.client} · {project.assignee}</p>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <p className={`text-xs font-medium ${daysLeft < 0 ? 'text-red-500' : daysLeft < 7 ? 'text-amber-500' : 'text-muted-foreground'}`}>
-                              {daysLeft < 0 ? `${Math.abs(daysLeft)}d försenad` : daysLeft === 0 ? 'Idag' : `${daysLeft}d kvar`}
-                            </p>
-                            <p className="text-[11px] text-muted-foreground">{project.deadline}</p>
-                          </div>
-                        </div>
-                        <div className="mt-3 flex items-center gap-3">
-                          <Progress value={pct} className={`h-1.5 flex-1 ${pct > 90 ? '[&>div]:bg-red-500' : ''}`} />
-                          <span className="text-[11px] text-muted-foreground shrink-0">{(project.spent / 1000).toFixed(0)}k / {(project.budget / 1000).toFixed(0)}k kr</span>
-                        </div>
-                        {project.tags.length > 0 && (
-                          <div className="flex gap-1 mt-2 flex-wrap">
-                            {project.tags.map(tag => <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground font-medium">{tag}</span>)}
+                          );
+                        })}
+                        {dayProjects.length > 3 && (
+                          <div className="text-[9px] text-muted-foreground text-center py-0.5">
+                            +{dayProjects.length - 3} till
                           </div>
                         )}
                       </div>
-                    );
-                  })}
-                </div>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
+
+              {/* Legend */}
+              <div className="flex items-center gap-4 px-4 py-2.5 border-t bg-muted/20 flex-wrap">
+                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Status:</span>
+                {statusOptions.map(s => (
+                  <div key={s.value} className="flex items-center gap-1.5">
+                    <div className={`w-2 h-2 rounded-full ${statusDotColors[s.value]}`} />
+                    <span className="text-[10px] text-muted-foreground">{s.label}</span>
+                  </div>
+                ))}
+                <span className="text-[10px] text-muted-foreground ml-auto">
+                  Prioritet: <span className="bg-red-500/10 px-1 rounded text-red-600 text-[10px]">Kritisk</span>
+                  {' '}<span className="bg-amber-500/10 px-1 rounded text-amber-600 text-[10px]">Hög</span>
+                </span>
+              </div>
+            </div>
           </motion.div>
 
         ) : (
