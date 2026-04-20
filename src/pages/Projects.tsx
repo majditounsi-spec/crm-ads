@@ -989,7 +989,7 @@ export default function Projects() {
                             className={`monday-row group ${isExpanded ? 'bg-muted/20' : ''}`}
                             style={{ display: 'grid', gridTemplateColumns: gridTemplate, alignItems: 'center' }}>
                             {visibleColumns.map((key, ci) => (
-                              <div key={key} className={`py-2.5 overflow-hidden min-w-0 ${ci === 0 ? 'pl-3 pr-2' : 'px-3'}`}>
+                              <div key={key} className={`py-2.5 min-w-0 ${key === 'assignee' ? 'overflow-visible' : 'overflow-hidden'} ${ci === 0 ? 'pl-3 pr-2' : 'px-3'}`}>
                                 {key === 'assignee' ? (
                                   <RenderAssigneeCell project={project} teamMembers={memberNames} updateProject={updateProject} />
                                 ) : key === 'name' ? (
