@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useWhiteLabel } from '@/hooks/useWhiteLabel';
+import { useCurrentUserRole } from '@/hooks/useCurrentUserRole';
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarMenu,
   SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, useSidebar,
@@ -14,28 +15,31 @@ interface NavItem {
   url: string;
   icon: any;
   visibilityKey?: string;
+  adminOnly?: boolean;
 }
 
 const allNavItems: NavItem[] = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
-  { title: 'Säljtavla', url: '/sales', icon: TrendingUp },
+  { title: 'Säljtavla', url: '/sales', icon: TrendingUp, adminOnly: true },
   { title: 'Projekt', url: '/projects', icon: FolderKanban },
-  { title: 'Kontakter', url: '/contacts', icon: Users },
-  { title: 'Google ADS', url: '/google-ads', icon: BarChart3, visibilityKey: 'showGoogleAds' },
+  { title: 'Kontakter', url: '/contacts', icon: Users, adminOnly: true },
+  { title: 'Google ADS', url: '/google-ads', icon: BarChart3, visibilityKey: 'showGoogleAds', adminOnly: true },
   { title: 'Tidloggning', url: '/time', icon: Clock },
-  { title: 'Automationer', url: '/automations', icon: Zap },
-  { title: 'GetAccept', url: '/getaccept', icon: FileSignature },
-  { title: 'Rapporter', url: '/reports', icon: PieChart },
-  { title: 'Integrationer', url: '/integrations', icon: Link2 },
-  { title: 'Aktivitetslogg', url: '/activity', icon: Activity },
+  { title: 'Automationer', url: '/automations', icon: Zap, adminOnly: true },
+  { title: 'GetAccept', url: '/getaccept', icon: FileSignature, adminOnly: true },
+  { title: 'Rapporter', url: '/reports', icon: PieChart, adminOnly: true },
+  { title: 'Integrationer', url: '/integrations', icon: Link2, adminOnly: true },
+  { title: 'Aktivitetslogg', url: '/activity', icon: Activity, adminOnly: true },
 ];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const { config } = useWhiteLabel();
+  const { isAdmin } = useCurrentUserRole();
 
   const navItems = allNavItems.filter(item => {
+    if (item.adminOnly && !isAdmin) return false;
     if (!item.visibilityKey) return true;
     return (config as any)[item.visibilityKey] !== false;
   });

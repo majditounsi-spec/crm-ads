@@ -21,6 +21,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Project, ProjectStatus, ProjectPriority } from '@/types/crm';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { useHourlyRate, getProjectHours, getTaskHours, loadProjectTimeEntries, computeProfitability } from '@/hooks/useBilling';
+import { useCurrentUserRole } from '@/hooks/useCurrentUserRole';
 import { toast } from 'sonner';
 import {
   DndContext, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors,
@@ -477,6 +478,7 @@ export default function Projects() {
   const { projects, addProject, updateProject, deleteProject } = useProjects();
   const { memberNames } = useTeamMembers();
   const { rate: hourlyRate } = useHourlyRate();
+  const { isAdmin, isProduction, name: currentUserName } = useCurrentUserRole();
   const [filter, setFilter] = useState<ProjectStatus | 'all'>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -547,7 +549,14 @@ export default function Projects() {
     });
   }, []);
 
-  const filteredBase = filter === 'all' ? projects : projects.filter(p => p.status === filter);
+  const roleBase = useMemo(() => {
+    if (isAdmin || !currentUserName) return projects;
+    return projects.filter(p =>
+      getProjectAssignees(p).some(a => a.toLowerCase() === currentUserName.toLowerCase())
+    );
+  }, [projects, isAdmin, isProduction, currentUserName]);
+
+  const filteredBase = filter === 'all' ? roleBase : roleBase.filter(p => p.status === filter);
 
   const filtered = useMemo(() => {
     if (!sortColumn) return filteredBase;
@@ -816,8 +825,17 @@ export default function Projects() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-heading font-bold tracking-tight">Projekt</h1>
-          <p className="text-sm text-muted-foreground">{projects.length} projekt · {activeCount} aktiva · {(totalBudget / 1000).toFixed(0)}k kr budget</p>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-heading font-bold tracking-tight">Projekt</h1>
+            {isProduction && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 font-semibold uppercase tracking-wider">Produktion</span>
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {isProduction
+              ? `${roleBase.length} projekt tilldelade dig`
+              : `${projects.length} projekt · ${activeCount} aktiva · ${(totalBudget / 1000).toFixed(0)}k kr budget`}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           {/* Column settings */}
@@ -907,7 +925,7 @@ export default function Projects() {
             </SelectContent>
           </Select>
 
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          {isAdmin && <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild><Button size="sm" className="h-8 rounded-lg gap-1.5"><Plus className="h-3.5 w-3.5" />Nytt</Button></DialogTrigger>
             <DialogContent className="rounded-2xl">
               <DialogHeader><DialogTitle className="font-heading">Skapa nytt projekt</DialogTitle></DialogHeader>
@@ -968,7 +986,7 @@ export default function Projects() {
                 <Button onClick={handleCreate} className="w-full rounded-lg">Skapa Projekt</Button>
               </div>
             </DialogContent>
-          </Dialog>
+          </Dialog>}
         </div>
       </div>
 

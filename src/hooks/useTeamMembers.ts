@@ -4,7 +4,7 @@ export interface TeamMember {
   id: string;
   email: string;
   name: string;
-  role: 'admin' | 'manager' | 'member' | 'viewer';
+  role: 'admin' | 'manager' | 'produktion' | 'member' | 'viewer';
   active: boolean;
 }
 

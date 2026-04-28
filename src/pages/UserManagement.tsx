@@ -32,7 +32,7 @@ const item = {
   show: { opacity: 1, y: 0 },
 };
 
-type Role = 'admin' | 'manager' | 'member' | 'viewer';
+type Role = 'admin' | 'manager' | 'produktion' | 'member' | 'viewer';
 
 interface TeamMember {
   id: string;
@@ -55,6 +55,7 @@ interface TeamMember {
 const roleConfig: Record<Role, { label: string; className: string; icon: any }> = {
   admin: { label: 'Admin', className: 'bg-red-500/10 text-red-600 border-red-500/20', icon: Crown },
   manager: { label: 'Chef', className: 'bg-violet-500/10 text-violet-600 border-violet-500/20', icon: Shield },
+  produktion: { label: 'Produktion', className: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20', icon: UserCheck },
   member: { label: 'Medarbetare', className: 'bg-blue-500/10 text-blue-600 border-blue-500/20', icon: UserCheck },
   viewer: { label: 'Läsare', className: 'bg-slate-500/10 text-slate-600 border-slate-500/20', icon: Eye },
 };
@@ -147,8 +148,8 @@ export default function UserManagement() {
         projects: true,
         billing: newRole === 'admin' || newRole === 'manager',
         settings: newRole === 'admin',
-        googleAds: newRole !== 'viewer',
-        reports: true,
+        googleAds: newRole === 'admin' || newRole === 'manager',
+        reports: newRole === 'admin' || newRole === 'manager',
       },
     };
 
@@ -178,8 +179,8 @@ export default function UserManagement() {
         projects: true,
         billing: role === 'admin' || role === 'manager',
         settings: role === 'admin',
-        googleAds: role !== 'viewer',
-        reports: true,
+        googleAds: role === 'admin' || role === 'manager',
+        reports: role === 'admin' || role === 'manager',
       },
     } : m));
     toast.success('Roll uppdaterad');
@@ -386,6 +387,7 @@ export default function UserManagement() {
               <p className="text-xs text-muted-foreground">
                 {newRole === 'admin' && 'Full åtkomst till alla funktioner inkl. inställningar och fakturering.'}
                 {newRole === 'manager' && 'Kan hantera kontakter, projekt och se rapporter. Ingen åtkomst till systeminställningar.'}
+                {newRole === 'produktion' && 'Ser bara egna projekt (de projekt de är taggade på). Ingen åtkomst till sälj, kontakter eller rapporter.'}
                 {newRole === 'member' && 'Kan arbeta med kontakter och projekt. Begränsad åtkomst till fakturering.'}
                 {newRole === 'viewer' && 'Kan bara se data, inte redigera. Perfekt för kunder eller externa parter.'}
               </p>
