@@ -44,9 +44,9 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="p-4 pb-2">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-[10px] bg-gradient-to-b from-[hsl(215,100%,55%)] to-[hsl(215,100%,45%)] flex items-center justify-center shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.15)] overflow-hidden shrink-0">
+          <div className="w-9 h-9 rounded-[10px] flex items-center justify-center overflow-hidden shrink-0">
             {config.logoUrl ? (
-              <img src={config.logoUrl} alt="Logo" className="w-full h-full object-contain p-0.5" />
+              <img src={config.logoUrl} alt="Logo" className="w-full h-full object-contain" />
             ) : (
               <span className="text-white font-bold text-sm tracking-tight drop-shadow-sm">
                 {config.companyName.charAt(0)}
