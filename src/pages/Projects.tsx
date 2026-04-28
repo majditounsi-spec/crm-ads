@@ -274,8 +274,8 @@ function RenderAssigneeCell({ project, teamMembers, updateProject }: { project: 
   );
 }
 
-function renderCell(project: Project, col: ColumnKey, navigate: (path: string) => void, updateProject: (id: string, updates: Partial<Project>) => void, teamMembers?: string[], hourlyRate: number = 1750) {
-  const hours = getProjectHours(project.id);
+function renderCell(project: Project, col: ColumnKey, navigate: (path: string) => void, updateProject: (id: string, updates: Partial<Project>) => void, teamMembers?: string[], hourlyRate: number = 1750, projectHours: number = 0) {
+  const hours = projectHours;
   const profit = computeProfitability(project.budget, hours, hourlyRate);
   const pct = Math.round(profit.budgetUsedPct);
   switch (col) {
@@ -315,13 +315,20 @@ function renderCell(project: Project, col: ColumnKey, navigate: (path: string) =
     case 'assignee':
       // Rendered separately via RenderAssigneeCell for state management
       return null;
-    case 'budget':
+    case 'budget': {
+      const remaining = profit.remaining;
       return (
         <div className="space-y-1 min-w-0">
           <div className="text-xs font-medium tabular-nums truncate">{project.budget.toLocaleString('sv-SE')} <span className="text-muted-foreground">kr</span></div>
           <Progress value={Math.min(100, pct)} className={`h-1 ${profit.status === 'over' ? '[&>div]:bg-red-500' : profit.status === 'warning' ? '[&>div]:bg-amber-500' : ''}`} />
+          {hours > 0 && (
+            <div className={`text-[10px] tabular-nums font-medium truncate ${profit.status === 'over' ? 'text-red-500' : profit.status === 'warning' ? 'text-amber-600' : 'text-emerald-600'}`}>
+              {remaining >= 0 ? `${remaining.toLocaleString('sv-SE')} kr kvar` : `${Math.abs(remaining).toLocaleString('sv-SE')} kr över`}
+            </div>
+          )}
         </div>
       );
+    }
     case 'timeLogged':
       return (
         <div className="space-y-0.5 min-w-0">
@@ -650,7 +657,14 @@ export default function Projects() {
   const [projectTasks, setProjectTasks] = useState<Record<string, Task[]>>({});
   const [newTaskInputs, setNewTaskInputs] = useState<Record<string, string>>({});
   const [timeLogInputs, setTimeLogInputs] = useState<Record<string, string>>({});
-  const [, forceUpdate] = useState(0);
+  const [timeVersion, setTimeVersion] = useState(0);
+
+  const projectHoursMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    projects.forEach(p => { map[p.id] = getProjectHours(p.id); });
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projects, timeVersion]);
 
   // Timer state (Clockify-style)
   const [activeTimer, setActiveTimer] = useState<{ projectId: string; taskId: string; taskTitle: string; startTime: number } | null>(null);
@@ -687,7 +701,7 @@ export default function Projects() {
     const h = entry.hours;
     toast.success(`${h >= 1 ? h.toFixed(1) + 'h' : Math.round(h * 60) + 'min'} loggat på "${activeTimer.taskTitle}"`);
     setActiveTimer(null);
-    forceUpdate(n => n + 1);
+    setTimeVersion(n => n + 1);
   }, [activeTimer, projects]);
 
   const toggleExpand = useCallback((projectId: string) => {
@@ -762,7 +776,7 @@ export default function Projects() {
     };
     saveTimeEntry(projectId, entry);
     setTimeLogInputs(prev => ({ ...prev, [key]: '' }));
-    forceUpdate(n => n + 1);
+    setTimeVersion(n => n + 1);
     toast.success(`${hours}h loggat på "${taskTitle}"`);
   }, [timeLogInputs, projects]);
 
@@ -1055,7 +1069,7 @@ export default function Projects() {
                       <div className="space-y-1">
                         {dayProjects.slice(0, 3).map(project => {
                           const assignees = getProjectAssignees(project);
-                          const hours = getProjectHours(project.id);
+                          const hours = projectHoursMap[project.id] || 0;
                           const profit = computeProfitability(project.budget, hours, hourlyRate);
                           const pct = Math.round(profit.budgetUsedPct);
                           return (
@@ -1191,7 +1205,7 @@ export default function Projects() {
                                     </div>
                                   </div>
                                 ) : (
-                                  renderCell(project, key, navigate, updateProject, memberNames, hourlyRate)
+                                  renderCell(project, key, navigate, updateProject, memberNames, hourlyRate, projectHoursMap[project.id] || 0)
                                 )}
                               </div>
                             ))}
