@@ -18,9 +18,9 @@ interface NavItem {
 
 const allNavItems: NavItem[] = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
+  { title: 'Säljtavla', url: '/sales', icon: TrendingUp },
   { title: 'Projekt', url: '/projects', icon: FolderKanban },
   { title: 'Kontakter', url: '/contacts', icon: Users },
-  { title: 'Säljtavla', url: '/sales', icon: TrendingUp },
   { title: 'Google ADS', url: '/google-ads', icon: BarChart3, visibilityKey: 'showGoogleAds' },
   { title: 'Tidloggning', url: '/time', icon: Clock },
   { title: 'Automationer', url: '/automations', icon: Zap },
