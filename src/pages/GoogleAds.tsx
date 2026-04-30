@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useContacts } from '@/hooks/useContacts';
 import { useGoogleAdsBudgets } from '@/hooks/useGoogleAdsBudgets';
 import { useGoogleAdsConfig } from '@/hooks/useGoogleAdsConfig';
+import { useAdsMonthlyBudgets } from '@/hooks/useAdsMonthlyBudgets';
 import GoogleAdsSettings from '@/components/GoogleAdsSettings';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
-import { ExternalLink, Search, TrendingUp, Plus, CalendarDays, RefreshCw, Settings, Loader2, Wifi, WifiOff, BarChart3, DollarSign, Users, Target } from 'lucide-react';
+import { ExternalLink, Search, TrendingUp, Plus, CalendarDays, RefreshCw, Settings, Loader2, Wifi, WifiOff, BarChart3, DollarSign, Users, Target, Pencil, Check, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { Contact } from '@/types/crm';
@@ -62,6 +63,11 @@ export default function GoogleAds() {
 
   const { contacts, loading: contactsLoading } = useContacts();
   const { config, syncing, syncBudgets } = useGoogleAdsConfig();
+  const { getMonthlyBudget, setMonthlyBudget } = useAdsMonthlyBudgets();
+
+  // Inline budget editing state: key = `${contactId}-${year}-${month}`
+  const [editingBudget, setEditingBudget] = useState<string | null>(null);
+  const [editBudgetValue, setEditBudgetValue] = useState('');
 
   const adsContacts = useMemo(() =>
     contacts.filter(c => {
@@ -90,7 +96,7 @@ export default function GoogleAds() {
     c.seller.toLowerCase().includes(search.toLowerCase())
   );
 
-  const totalMonthlyBudget = adsContacts.reduce((s, c) => s + c.budget, 0);
+  const totalMonthlyBudget = adsContacts.reduce((s, c) => s + getEffectiveBudget(c.id, selectedYear, selectedMonth, c.budget), 0);
   const totalYearlyBudget = totalMonthlyBudget * 12;
   const totalDailySpendThisMonth = monthlyBudgets.reduce((s, b) => s + b.dailySpend, 0);
   const totalImpressions = monthlyBudgets.reduce((s, b) => s + b.impressions, 0);
@@ -115,6 +121,11 @@ export default function GoogleAds() {
     return dailyMap;
   };
 
+  const getEffectiveBudget = (contactId: string, year: number, month: number, fallback: number): number => {
+    const manual = getMonthlyBudget(contactId, year, month);
+    return manual !== null ? manual : fallback;
+  };
+
   const getMonthlyBudgetData = (contact: Contact) => {
     const startDate = contact.startDate ? new Date(contact.startDate) : null;
     const endDate = contact.endDate ? new Date(contact.endDate) : null;
@@ -127,14 +138,29 @@ export default function GoogleAds() {
       const { from, to } = getDateRange(selectedYear, monthIndex);
       const monthBudgets = budgets.filter(b => b.contactId === contact.id && b.date >= from && b.date <= to);
       const actualSpend = monthBudgets.reduce((s, b) => s + b.dailySpend, 0);
-      return { plannedBudget: contact.budget, actualSpend, hasData: monthBudgets.length > 0 };
+      const plannedBudget = getEffectiveBudget(contact.id, selectedYear, monthIndex, contact.budget);
+      return { plannedBudget, actualSpend, hasData: monthBudgets.length > 0 };
     });
+  };
+
+  const startBudgetEdit = (key: string, currentValue: number) => {
+    setEditingBudget(key);
+    setEditBudgetValue(String(currentValue));
+  };
+
+  const commitBudgetEdit = (contactId: string, year: number, month: number) => {
+    const val = parseFloat(editBudgetValue);
+    if (!isNaN(val) && val >= 0) {
+      setMonthlyBudget(contactId, year, month, val);
+      toast.success('Månadsbudget sparad');
+    }
+    setEditingBudget(null);
   };
 
   const monthlyTotals = MONTHS.map((_, monthIndex) => {
     return filtered.reduce((sum, contact) => {
       const data = getMonthlyBudgetData(contact);
-      return sum + (data[monthIndex]?.plannedBudget || 0);
+      return sum + (data[monthIndex]?.plannedBudget ?? 0);
     }, 0);
   });
 
@@ -345,7 +371,41 @@ export default function GoogleAds() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-center"><span className="text-xs font-medium text-muted-foreground">{contact.budget.toLocaleString('sv-SE')} kr</span></TableCell>
+                      <TableCell className="text-center p-1">
+                        {(() => {
+                          const editKey = `${contact.id}-${selectedYear}-${selectedMonth}`;
+                          const effective = getEffectiveBudget(contact.id, selectedYear, selectedMonth, contact.budget);
+                          const isManual = getMonthlyBudget(contact.id, selectedYear, selectedMonth) !== null;
+                          if (editingBudget === editKey) {
+                            return (
+                              <div className="flex items-center gap-0.5">
+                                <Input
+                                  type="number"
+                                  value={editBudgetValue}
+                                  onChange={e => setEditBudgetValue(e.target.value)}
+                                  onKeyDown={e => { if (e.key === 'Enter') commitBudgetEdit(contact.id, selectedYear, selectedMonth); if (e.key === 'Escape') setEditingBudget(null); }}
+                                  className="h-6 w-20 text-xs text-center p-1 border-primary"
+                                  autoFocus
+                                />
+                                <button onClick={() => commitBudgetEdit(contact.id, selectedYear, selectedMonth)} className="p-0.5 text-emerald-500 hover:text-emerald-600"><Check className="h-3.5 w-3.5" /></button>
+                                <button onClick={() => setEditingBudget(null)} className="p-0.5 text-muted-foreground hover:text-foreground"><X className="h-3.5 w-3.5" /></button>
+                              </div>
+                            );
+                          }
+                          return (
+                            <button
+                              onClick={() => startBudgetEdit(editKey, effective)}
+                              className="group flex items-center gap-1 mx-auto hover:bg-muted/50 rounded px-1.5 py-0.5 transition-colors"
+                              title="Klicka för att redigera månadsbudget"
+                            >
+                              <span className={`text-xs font-medium ${isManual ? 'text-primary' : 'text-muted-foreground'}`}>
+                                {effective.toLocaleString('sv-SE')} kr
+                              </span>
+                              <Pencil className="h-2.5 w-2.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </button>
+                          );
+                        })()}
+                      </TableCell>
                       {days.map(d => {
                         const data = dailyData[d];
                         return (
@@ -366,7 +426,7 @@ export default function GoogleAds() {
                 })}
                 <TableRow className="bg-muted/50 font-bold border-t-2">
                   <TableCell className="sticky left-0 bg-muted/50 z-10">Totalt</TableCell>
-                  <TableCell className="text-center">{filtered.reduce((s, c) => s + c.budget, 0).toLocaleString('sv-SE')} kr</TableCell>
+                  <TableCell className="text-center">{totalMonthlyBudget.toLocaleString('sv-SE')} kr</TableCell>
                   {days.map(d => {
                     const dayTotal = filtered.reduce((sum, c) => sum + (getDailyDataForContact(c.id)[d]?.spend || 0), 0);
                     return <TableCell key={d} className="text-center text-xs">{dayTotal > 0 ? Math.round(dayTotal) : '·'}</TableCell>;
@@ -416,16 +476,53 @@ export default function GoogleAds() {
                           {parseServices(contact.service).map(svc => <Badge key={svc} variant="secondary" className="text-[10px] px-1.5 py-0">{svc}</Badge>)}
                         </div>
                       </TableCell>
-                      {monthlyData.map((val, mi) => (
-                        <TableCell key={mi} className="text-center">
-                          {val !== null ? (
-                            <div>
-                              <span className="text-xs font-medium">{val.plannedBudget.toLocaleString('sv-SE')}</span>
-                              {val.hasData && <div className={`text-[10px] ${val.actualSpend > val.plannedBudget ? 'text-red-500 font-semibold' : 'text-muted-foreground'}`}>{val.actualSpend.toLocaleString('sv-SE', { maximumFractionDigits: 0 })}</div>}
-                            </div>
-                          ) : <span className="text-muted-foreground/20">·</span>}
-                        </TableCell>
-                      ))}
+                      {monthlyData.map((val, mi) => {
+                        const editKey = `${contact.id}-${selectedYear}-${mi}`;
+                        const isManual = getMonthlyBudget(contact.id, selectedYear, mi) !== null;
+                        return (
+                          <TableCell key={mi} className="text-center p-1">
+                            {editingBudget === editKey ? (
+                              <div className="flex items-center gap-0.5 justify-center">
+                                <Input
+                                  type="number"
+                                  value={editBudgetValue}
+                                  onChange={e => setEditBudgetValue(e.target.value)}
+                                  onKeyDown={e => { if (e.key === 'Enter') commitBudgetEdit(contact.id, selectedYear, mi); if (e.key === 'Escape') setEditingBudget(null); }}
+                                  className="h-6 w-16 text-xs text-center p-1 border-primary"
+                                  autoFocus
+                                />
+                                <button onClick={() => commitBudgetEdit(contact.id, selectedYear, mi)} className="p-0.5 text-emerald-500"><Check className="h-3 w-3" /></button>
+                                <button onClick={() => setEditingBudget(null)} className="p-0.5 text-muted-foreground"><X className="h-3 w-3" /></button>
+                              </div>
+                            ) : val !== null ? (
+                              <button
+                                onClick={() => startBudgetEdit(editKey, val.plannedBudget)}
+                                className="group w-full text-center hover:bg-muted/50 rounded px-1 py-0.5 transition-colors"
+                                title="Klicka för att redigera budget"
+                              >
+                                <span className={`text-xs font-medium flex items-center gap-0.5 justify-center ${isManual ? 'text-primary' : ''}`}>
+                                  {val.plannedBudget.toLocaleString('sv-SE')}
+                                  <Pencil className="h-2 w-2 opacity-0 group-hover:opacity-60 transition-opacity" />
+                                </span>
+                                {val.hasData && (
+                                  <div className={`text-[10px] ${val.actualSpend > val.plannedBudget ? 'text-red-500 font-semibold' : 'text-muted-foreground'}`}>
+                                    {val.actualSpend.toLocaleString('sv-SE', { maximumFractionDigits: 0 })}
+                                  </div>
+                                )}
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => startBudgetEdit(editKey, contact.budget)}
+                                className="group text-muted-foreground/30 hover:text-muted-foreground text-xs transition-colors px-1"
+                                title="Lägg till budget"
+                              >
+                                <span className="opacity-0 group-hover:opacity-100">+</span>
+                                <span className="group-hover:hidden">·</span>
+                              </button>
+                            )}
+                          </TableCell>
+                        );
+                      })}
                       <TableCell className="text-center"><span className="font-bold text-sm">{yearTotal > 0 ? `${yearTotal.toLocaleString('sv-SE')} kr` : '—'}</span></TableCell>
                     </motion.tr>
                   );
