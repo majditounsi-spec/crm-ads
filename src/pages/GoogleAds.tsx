@@ -96,6 +96,11 @@ export default function GoogleAds() {
     c.seller.toLowerCase().includes(search.toLowerCase())
   );
 
+  const getEffectiveBudget = (contactId: string, year: number, month: number, fallback: number): number => {
+    const manual = getMonthlyBudget(contactId, year, month);
+    return manual !== null ? manual : fallback;
+  };
+
   const totalMonthlyBudget = adsContacts.reduce((s, c) => s + getEffectiveBudget(c.id, selectedYear, selectedMonth, c.budget), 0);
   const totalYearlyBudget = totalMonthlyBudget * 12;
   const totalDailySpendThisMonth = monthlyBudgets.reduce((s, b) => s + b.dailySpend, 0);
@@ -119,11 +124,6 @@ export default function GoogleAds() {
       dailyMap[day].clicks += b.clicks;
     }
     return dailyMap;
-  };
-
-  const getEffectiveBudget = (contactId: string, year: number, month: number, fallback: number): number => {
-    const manual = getMonthlyBudget(contactId, year, month);
-    return manual !== null ? manual : fallback;
   };
 
   const getMonthlyBudgetData = (contact: Contact) => {
