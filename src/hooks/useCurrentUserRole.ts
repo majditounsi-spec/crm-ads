@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useAuth } from './useAuth';
 
 export type AppRole = 'admin' | 'manager' | 'produktion' | 'member' | 'viewer';
@@ -17,16 +18,28 @@ function lookupRole(email: string): { role: AppRole; name: string } | null {
 
 export function useCurrentUserRole() {
   const { user } = useAuth();
+  const [, rerender] = useState(0);
 
+  // Re-read when team members change in localStorage
+  useEffect(() => {
+    const handler = () => rerender(n => n + 1);
+    window.addEventListener('storage', handler);
+    return () => window.removeEventListener('storage', handler);
+  }, []);
+
+  // No user logged in → full access (backwards compatible)
   if (!user) {
-    return { role: null as AppRole | null, name: '', isAdmin: false, isProduction: false };
+    return { role: 'admin' as AppRole, name: '', isAdmin: true, isProduction: false };
   }
 
   const found = lookupRole(user.email);
-  const role: AppRole = found?.role ?? 'admin';
-  const name = found?.name ?? user.name;
 
-  // admin + manager see everything; produktion/member/viewer are filtered
+  // User not in team list → default to admin (owner/new user)
+  if (!found) {
+    return { role: 'admin' as AppRole, name: user.name, isAdmin: true, isProduction: false };
+  }
+
+  const { role, name } = found;
   const isAdmin = role === 'admin' || role === 'manager';
   const isProduction = !isAdmin;
 
