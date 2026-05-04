@@ -15,33 +15,33 @@ interface NavItem {
   url: string;
   icon: any;
   visibilityKey?: string;
-  adminOnly?: boolean;
+  permissionKey?: string;
 }
 
 const allNavItems: NavItem[] = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
-  { title: 'Säljtavla', url: '/sales', icon: TrendingUp, adminOnly: true },
-  { title: 'Projekt', url: '/projects', icon: FolderKanban },
-  { title: 'Kontakter', url: '/contacts', icon: Users, adminOnly: true },
-  { title: 'Google ADS', url: '/google-ads', icon: BarChart3, visibilityKey: 'showGoogleAds', adminOnly: true },
-  { title: 'Tidloggning', url: '/time', icon: Clock },
-  { title: 'Automationer', url: '/automations', icon: Zap, adminOnly: true },
-  { title: 'GetAccept', url: '/getaccept', icon: FileSignature, adminOnly: true },
-  { title: 'Rapporter', url: '/reports', icon: PieChart, adminOnly: true },
-  { title: 'Integrationer', url: '/integrations', icon: Link2, adminOnly: true },
-  { title: 'Aktivitetslogg', url: '/activity', icon: Activity, adminOnly: true },
+  { title: 'Säljtavla', url: '/sales', icon: TrendingUp, permissionKey: 'sales' },
+  { title: 'Projekt', url: '/projects', icon: FolderKanban, permissionKey: 'projects' },
+  { title: 'Kontakter', url: '/contacts', icon: Users, permissionKey: 'contacts' },
+  { title: 'Google ADS', url: '/google-ads', icon: BarChart3, visibilityKey: 'showGoogleAds', permissionKey: 'googleAds' },
+  { title: 'Tidloggning', url: '/time', icon: Clock, permissionKey: 'timeTracking' },
+  { title: 'Automationer', url: '/automations', icon: Zap, permissionKey: 'automations' },
+  { title: 'GetAccept', url: '/getaccept', icon: FileSignature },
+  { title: 'Rapporter', url: '/reports', icon: PieChart, permissionKey: 'reports' },
+  { title: 'Integrationer', url: '/integrations', icon: Link2 },
+  { title: 'Aktivitetslogg', url: '/activity', icon: Activity },
 ];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const { config } = useWhiteLabel();
-  const { isAdmin } = useCurrentUserRole();
+  const { permissions } = useCurrentUserRole();
 
   const navItems = allNavItems.filter(item => {
-    if (item.adminOnly && !isAdmin) return false;
-    if (!item.visibilityKey) return true;
-    return (config as any)[item.visibilityKey] !== false;
+    if (item.permissionKey && !(permissions as any)[item.permissionKey]) return false;
+    if (item.visibilityKey && (config as any)[item.visibilityKey] === false) return false;
+    return true;
   });
 
   return (
