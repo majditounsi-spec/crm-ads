@@ -39,74 +39,159 @@ interface Rule {
 
 const RULES: Rule[] = [
   {
-    keywords: ['projekt', 'projects', 'skapa projekt', 'nytt projekt'],
+    keywords: ['projekt', 'projects', 'skapa projekt', 'nytt projekt', 'projektöversikt', 'projekttavla'],
     answer:
-      'Du hittar alla projekt under "Projekt" i sidomenyn. Där kan du skapa nya projekt, tilldela team-medlemmar, sätta deadlines och följa upp status. Klicka på "+ Nytt projekt" för att komma igång!',
+      'Du hittar alla projekt under "Projekt" i sidomenyn. Där kan du skapa nya projekt, tilldela team-medlemmar, sätta deadlines och följa upp status. Klicka på "+ Nytt projekt" för att komma igång! Varje projekt har en detaljvy med uppgifter, budget, tidloggning och tilldelade medlemmar.',
   },
   {
-    keywords: ['kontakt', 'kontakter', 'kund', 'kunder', 'leads'],
+    keywords: ['kontakt', 'kontakter', 'kund', 'kunder', 'leads', 'crm', 'kundregister'],
     answer:
-      'Under "Kontakter" kan du hantera alla kunder och leads. Du kan lägga till nya kontakter, filtrera på status, och se kontakthistorik. Använd sökfältet för att snabbt hitta en specifik kontakt.',
+      'Under "Kontakter" kan du hantera alla kunder och leads. Du kan lägga till nya kontakter, filtrera på status, och se kontakthistorik. Använd sökfältet för att snabbt hitta en specifik kontakt. Du kan även koppla kontakter till projekt och säljtavlan.',
   },
   {
-    keywords: ['säljtavla', 'säljpipeline', 'pipeline', 'deals', 'affärer'],
+    keywords: ['säljtavla', 'säljpipeline', 'pipeline', 'deals', 'affärer', 'sälja', 'försäljning'],
     answer:
-      'Säljtavlan visar din pipeline med drag-and-drop. Du kan flytta affärer mellan steg (Lead, Offert, Förhandling, Vunnen, Förlorad), se totalt värde per steg, och filtrera på ansvarig säljare.',
+      'Säljtavlan visar din pipeline med drag-and-drop. Du kan flytta affärer mellan steg (Lead, Offert, Förhandling, Vunnen, Förlorad), se totalt värde per steg, och filtrera på ansvarig säljare. Varje deal kan kopplas till en kontakt och ett projekt.',
   },
   {
-    keywords: ['tid', 'tidloggning', 'time', 'timmar', 'logga tid'],
+    keywords: ['tid', 'tidloggning', 'time', 'timmar', 'logga tid', 'timer', 'tidrapport', 'tidsspårning'],
     answer:
-      'Under "Tidloggning" kan du registrera arbetad tid per projekt. Använd timern för att spåra tid i realtid, eller lägg till tid manuellt. Du kan även exportera tidrapporter.',
+      'Under "Tidloggning" kan du registrera arbetad tid per projekt och uppgift. Använd timern för att spåra tid i realtid, eller lägg till tid manuellt. Tiden räknas mot projektbudgeten med ditt timpris (standard 1750 kr/h). Du kan se sammanställningen under projektöversikten.',
   },
   {
-    keywords: ['google ads', 'ads', 'annons', 'annonser', 'kampanj', 'kampanjer', 'budget'],
+    keywords: ['google ads', 'ads', 'annons', 'annonser', 'kampanj', 'kampanjer'],
     answer:
-      'Google Ads-sektionen visar kampanjprestanda, budgetförbrukning och nyckeltal. Du kan koppla Google Ads-konton under Inställningar > Google Ads. Dashboarden uppdateras automatiskt.',
+      'Google Ads-sektionen visar kampanjprestanda, budgetförbrukning och nyckeltal per konto. Du kan sätta manuell månadsbudget per konto, se daglig och årlig förbrukning, och jämföra mot budget. Koppla konton under Inställningar > Google Ads.',
   },
   {
-    keywords: ['roll', 'roller', 'behörighet', 'behörigheter', 'admin', 'användare'],
+    keywords: ['budget', 'månadsbudget', 'kostnad', 'kostnader', 'pris'],
     answer:
-      'Roller hanteras under "Användare". Det finns tre roller: Admin (full åtkomst), Projektledare (hantera projekt och kontakter), och Medlem (grundläggande åtkomst). Admins kan ändra roller.',
+      'Budget hanteras på flera ställen:\n• Projektbudget – sätts i projektets detaljvy och räknas av med loggad tid (1750 kr/h)\n• Google Ads månadsbudget – sätts per konto under Google Ads-fliken\n• Säljtavlan – visar värdet på varje affär i pipelinen',
   },
   {
-    keywords: ['inställning', 'inställningar', 'settings', 'konfigurera', 'profil'],
+    keywords: ['roll', 'roller', 'behörighet', 'behörigheter', 'admin', 'rättigheter', 'åtkomst'],
     answer:
-      'Under "Inställningar" kan du anpassa företagsprofil, integrationsinställningar (Google Ads, Fortnox, GetAccept), white-label, och notifikationer. Klicka på kugghjulet i sidomenyn.',
+      'Roller hanteras under "Användare" i sidomenyn. Det finns roller som Admin (full åtkomst), Manager, Produktion (ser bara tilldelade projekt) och Viewer. Under Inställningar > Roller kan du konfigurera exakt vilka funktioner varje roll har tillgång till.',
   },
   {
-    keywords: ['rapport', 'rapporter', 'statistik', 'analys', 'dashboard'],
+    keywords: ['användare', 'team', 'teammedlem', 'medlem', 'bjud in', 'lägga till användare'],
     answer:
-      'Rapporter hittar du på Dashboard-sidan och under "Rapporter". Där ser du försäljningsstatistik, projektöversikt, tidsrapporter och Google Ads-prestanda med interaktiva diagram.',
+      'Under "Användare" kan du hantera teammedlemmar. Där kan du lägga till nya användare, tilldela roller (Admin, Manager, Produktion, Viewer) och se vilka som är online. Varje användares roll styr vilka delar av systemet de har åtkomst till.',
   },
   {
-    keywords: ['navigera', 'hitta', 'var finns', 'hur hittar', 'meny', 'sidomeny'],
+    keywords: ['inställning', 'inställningar', 'settings', 'konfigurera', 'profil', 'konfiguration'],
     answer:
-      'Använd sidomenyn till vänster för att navigera. Huvudsektionerna är: Dashboard, Projekt, Kontakter, Säljtavla, Tidloggning, Google Ads, Rapporter, Användare och Inställningar. Du kan även använda sökfältet (Cmd+K) för snabbsökning.',
+      'Under "Inställningar" kan du anpassa:\n• Företagsprofil – namn, logotyp, färger\n• Integrationer – Google Ads, Fortnox, GetAccept\n• White-label – anpassa utseende\n• Roller – konfigurera behörigheter per roll\n• Notifikationer – vad som ska meddelas',
   },
   {
-    keywords: ['hej', 'hallå', 'tjena', 'god morgon', 'god kväll', 'hejsan'],
+    keywords: ['rapport', 'rapporter', 'statistik', 'analys', 'dashboard', 'översikt'],
     answer:
-      'Hej! 👋 Jag är din AI-assistent för MarketFlow CRM. Jag kan hjälpa dig med frågor om projekt, kontakter, säljtavlan, tidloggning, Google Ads, roller och inställningar. Vad kan jag hjälpa dig med?',
+      'Rapporter hittar du på Dashboard-sidan och under "Rapporter". Där ser du försäljningsstatistik, projektöversikt, tidsrapporter och Google Ads-prestanda med interaktiva diagram. Du kan filtrera på tidsperiod och exportera data.',
   },
   {
-    keywords: ['tack', 'tackar', 'bra', 'toppen', 'perfekt'],
+    keywords: ['navigera', 'hitta', 'var finns', 'hur hittar', 'meny', 'sidomeny', 'var är'],
+    answer:
+      'Använd sidomenyn till vänster för att navigera. Huvudsektionerna är: Dashboard, Säljtavla, Projekt, Kontakter, Tidloggning, Google Ads, Rapporter, Användare och Inställningar. Du kan även använda sökfältet (Cmd+K) för snabbsökning.',
+  },
+  {
+    keywords: ['hej', 'hallå', 'tjena', 'god morgon', 'god kväll', 'hejsan', 'hejhej', 'hey', 'hi'],
+    answer:
+      'Hej! 👋 Jag är din AI-assistent för MarketFlow CRM. Jag kan hjälpa dig med frågor om systemets alla funktioner — projekt, kontakter, säljtavlan, tidloggning, Google Ads, roller, inställningar och mer. Ställ gärna en fråga!',
+  },
+  {
+    keywords: ['tack', 'tackar', 'bra', 'toppen', 'perfekt', 'underbart', 'grymt', 'nice'],
     answer:
       'Glad att kunna hjälpa! Tveka inte att fråga om du behöver mer hjälp. 😊',
   },
   {
-    keywords: ['hjälp', 'help', 'vad kan du', 'funktioner'],
+    keywords: ['hjälp', 'help', 'vad kan du', 'funktioner', 'hur fungerar', 'guide', 'manual'],
     answer:
-      'Jag kan hjälpa dig med:\n• Projekt – skapa och hantera projekt\n• Kontakter – kund- och lead-hantering\n• Säljtavla – pipeline och affärer\n• Tidloggning – spåra arbetstid\n• Google Ads – kampanjöversikt\n• Roller – behörigheter och användare\n• Inställningar – konfiguration\n• Rapporter – statistik och analys\n\nSkriv ett ämne så berättar jag mer!',
+      'Jag kan hjälpa dig med allt i MarketFlow CRM:\n• Projekt – skapa, hantera och följa upp projekt\n• Kontakter – kund- och lead-hantering\n• Säljtavla – pipeline med drag-and-drop\n• Tidloggning – spåra arbetstid med timer\n• Google Ads – kampanjöversikt och budget\n• Roller & Användare – behörigheter och team\n• Inställningar – integrations och konfiguration\n• Rapporter – statistik och analys\n\nSkriv vad du undrar över så hjälper jag dig!',
   },
   {
-    keywords: ['fortnox', 'faktura', 'bokföring'],
+    keywords: ['fortnox', 'faktura', 'bokföring', 'fakturera'],
     answer:
-      'Fortnox-integrationen hittar du under Inställningar > Fortnox. Där kan du koppla ditt Fortnox-konto för att synka fakturor och bokföring. Kontakta admin om du behöver hjälp med att sätta upp kopplingen.',
+      'Fortnox-integrationen hittar du under Inställningar > Fortnox. Där kan du koppla ditt Fortnox-konto för att synka fakturor och bokföring. När det är kopplat kan du skapa fakturor direkt från projekt.',
   },
   {
-    keywords: ['getaccept', 'offert', 'signera', 'avtal'],
+    keywords: ['getaccept', 'offert', 'signera', 'avtal', 'dokument'],
     answer:
       'GetAccept-integrationen låter dig skicka offerter och avtal direkt från CRM:et. Koppla ditt konto under Inställningar > GetAccept. Du kan sedan skapa och följa upp dokument från projektvyn.',
+  },
+  {
+    keywords: ['uppgift', 'uppgifter', 'task', 'tasks', 'todo', 'att göra'],
+    answer:
+      'Uppgifter hanteras i varje projekts detaljvy. Klicka på ett projekt för att se och skapa uppgifter. Du kan tilldela uppgifter till teammedlemmar, sätta deadlines och markera som klara. Loggad tid kopplas automatiskt till uppgiften.',
+  },
+  {
+    keywords: ['deadline', 'förfaller', 'datum', 'tidsplan', 'schema'],
+    answer:
+      'Deadlines sätts på projektnivå och uppgiftsnivå. Du ser kommande deadlines på Dashboard och i projektöversikten. Projekt som närmar sig deadline markeras med varningsfärg.',
+  },
+  {
+    keywords: ['drag', 'drop', 'dra', 'flytta', 'sortera'],
+    answer:
+      'Drag-and-drop används på säljtavlan för att flytta affärer mellan pipeline-steg. Dra ett kort från ett steg (t.ex. "Lead") och släpp det i ett annat (t.ex. "Offert") för att uppdatera status.',
+  },
+  {
+    keywords: ['logga in', 'login', 'inloggning', 'konto', 'lösenord', 'registrera'],
+    answer:
+      'Du loggar in via login-sidan. Om du inte har ett konto kan din admin bjuda in dig under "Användare". Glömt lösenordet? Kontakta din systemadministratör för att återställa det.',
+  },
+  {
+    keywords: ['dark mode', 'mörkt', 'ljust', 'tema', 'dark', 'light', 'utseende'],
+    answer:
+      'Du kan byta tema via ikonerna i övre högra hörnet av appen. Det finns tre lägen: Ljust, Mörkt, och System (följer datorns inställning). Ändringen sparas automatiskt.',
+  },
+  {
+    keywords: ['notifikation', 'notis', 'varning', 'påminnelse', 'meddelande'],
+    answer:
+      'Notifikationer visas via klockan i övre högra hörnet. Du får varningar om deadlines, budgetöverskridanden och blockerade projekt. Du kan markera alla som lästa eller stänga enskilda notifikationer.',
+  },
+  {
+    keywords: ['exportera', 'export', 'ladda ner', 'pdf', 'csv', 'excel'],
+    answer:
+      'Du kan exportera data från flera ställen: tidrapporter, kontaktlistor och rapporter. Kolla efter export-knappen (nedåtpil-ikon) i respektive sektion. Data kan exporteras som CSV.',
+  },
+  {
+    keywords: ['sök', 'söka', 'search', 'filtrera', 'filter'],
+    answer:
+      'Sökfältet hittar du i övre menyn (genväg: Cmd+K eller Ctrl+K). Du kan söka på projekt, kontakter och mer. I listor finns även filterfunktioner för att t.ex. filtrera på status, ansvarig eller datum.',
+  },
+  {
+    keywords: ['white label', 'white-label', 'varumärke', 'logotyp', 'logo', 'färg', 'färger', 'branding'],
+    answer:
+      'Under Inställningar > White-label kan du anpassa systemets utseende med egen logotyp, företagsnamn och färger. Ändringarna visas direkt i sidomenyn och i appen.',
+  },
+  {
+    keywords: ['automation', 'automatisering', 'automatisk', 'workflow', 'flöde'],
+    answer:
+      'Automationer hittar du under "Automationer" i sidomenyn. Där kan du sätta upp regler som automatiskt utför handlingar, t.ex. flytta affärer, skicka notifikationer eller uppdatera status baserat på triggers.',
+  },
+  {
+    keywords: ['vad är', 'berätta om', 'förklara', 'hur använder', 'hur gör jag', 'hur kan jag'],
+    answer:
+      'Berätta gärna mer specifikt vad du vill veta! Jag kan hjälpa med:\n• Hur man skapar projekt och uppgifter\n• Hur tidloggning och budget fungerar\n• Hur säljtavlan och pipeline funkar\n• Hur man hanterar kontakter och leads\n• Hur roller och behörigheter sätts upp\n• Hur Google Ads-kopplingen fungerar\n• Hur man konfigurerar inställningar',
+  },
+  {
+    keywords: ['problem', 'funkar inte', 'fel', 'bugg', 'bug', 'trasig', 'error', 'crash'],
+    answer:
+      'Om något inte fungerar som förväntat, prova följande:\n1. Ladda om sidan (Ctrl+Shift+R)\n2. Rensa webbläsarens cache\n3. Kolla att du har rätt behörighet (fråga admin)\n4. Om problemet kvarstår, kontakta din systemadministratör med en beskrivning av felet.',
+  },
+  {
+    keywords: ['snabbkommando', 'genväg', 'kortkommando', 'tangent', 'shortcut'],
+    answer:
+      'Tillgängliga snabbkommandon:\n• Cmd/Ctrl + K – Öppna sök\n• Sidomenyn – Navigera mellan sektioner\n• Enter – Skicka meddelande i chatten\nFler genvägar kan tillkomma i framtida uppdateringar.',
+  },
+  {
+    keywords: ['online', 'aktiv', 'aktiva', 'vem är', 'vilka är', 'inloggade'],
+    answer:
+      'Du kan se vilka som är online via team-chatten (klicka på "Team"-fliken i denna chatt). Antalet online-användare visas som en badge. Systemet uppdateras var 10:e sekund.',
+  },
+  {
+    keywords: ['chatt', 'chat', 'meddelande', 'team chatt', 'teamchatt', 'broadcast'],
+    answer:
+      'Team-chatten (fliken "Team" här) låter dig skicka meddelanden till alla som är online i systemet. Meddelanden synkas i realtid mellan alla öppna flikar. De senaste 50 meddelandena sparas.',
   },
 ];
 
@@ -119,7 +204,7 @@ function getAIResponse(input: string): string {
     }
   }
 
-  return 'Tyvärr förstod jag inte riktigt din fråga. Prova att fråga om t.ex. projekt, kontakter, säljtavla, tidloggning, Google Ads, roller, inställningar eller rapporter, så hjälper jag dig!';
+  return 'Jag hittade inget direkt svar på det. Här är några saker jag kan hjälpa dig med:\n\n• Projekt & uppgifter\n• Kontakter & kunder\n• Säljtavla & pipeline\n• Tidloggning & budget\n• Google Ads & kampanjer\n• Roller & behörigheter\n• Inställningar & integrationer\n• Team-chatt & online-användare\n\nSkriv t.ex. "hur gör jag" eller "berätta om projekt" så hjälper jag dig vidare!';
 }
 
 // ---------------------------------------------------------------------------
