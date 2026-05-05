@@ -3,6 +3,7 @@ import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { Outlet } from 'react-router-dom';
 import { Bell, Search, Command, Clock, LogOut, Settings, Shield, LogIn, Sun, Moon, Monitor } from 'lucide-react';
+import { ChatWidget } from '@/components/ChatWidget';
 import { useWhiteLabel } from '@/hooks/useWhiteLabel';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
@@ -214,6 +215,7 @@ export function Layout() {
           </main>
         </div>
       </div>
+      <ChatWidget />
     </SidebarProvider>
   );
 }
