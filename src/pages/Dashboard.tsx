@@ -2,10 +2,12 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   FolderKanban, Clock, DollarSign, Users, TrendingUp, ArrowUpRight, ArrowDownRight,
   Activity, Target, CheckCircle2, AlertCircle, BarChart3, Globe, Camera, Zap,
-  MessageSquare, FileText, ArrowRight, Sparkles, Brain,
+  MessageSquare, FileText, ArrowRight, Sparkles, Brain, AlertTriangle, CalendarClock,
+  Hourglass, BellRing, ChevronRight, XCircle,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/StatusBadge';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { mockTimeEntries, mockTasks } from '@/data/mockData';
@@ -13,9 +15,10 @@ import { useContacts } from '@/hooks/useContacts';
 import { useProjects } from '@/hooks/useProjects';
 import { useGetAccept } from '@/hooks/useGetAccept';
 import { useFortnox } from '@/hooks/useFortnox';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Progress } from '@/components/ui/progress';
 import { Link } from 'react-router-dom';
+import type { SalesLead } from '@/pages/SalesBoard';
 
 const container = {
   hidden: { opacity: 0 },
@@ -56,7 +59,7 @@ export default function Dashboard() {
   const { contacts } = useContacts();
   const { projects } = useProjects();
   const { deals } = useGetAccept();
-  const { totalRevenue, totalOutstanding } = useFortnox();
+  const { invoices, totalRevenue, totalOutstanding } = useFortnox();
 
   const timeEntries = useMemo(() => {
     try {
@@ -146,6 +149,191 @@ export default function Dashboard() {
 
   const totalServiceBudget = serviceDistribution.reduce((s, [, d]) => s + d.budget, 0);
 
+  // Load sales leads for stagnant lead alerts
+  const salesLeads: SalesLead[] = useMemo(() => {
+    try {
+      const raw = localStorage.getItem('marketflow_sales_leads');
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  }, []);
+
+  // ── Smart Alerts: computed from real data ──
+  interface SmartAlert {
+    id: string;
+    type: 'deadline' | 'budget' | 'stagnant' | 'overdue' | 'blocked' | 'opportunity';
+    severity: 'critical' | 'warning' | 'info';
+    title: string;
+    description: string;
+    link: string;
+    icon: any;
+  }
+
+  const smartAlerts = useMemo(() => {
+    const alerts: SmartAlert[] = [];
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+
+    // Deadline alerts
+    projects.forEach(p => {
+      if (p.status === 'done' || !p.deadline) return;
+      const deadlineDate = new Date(p.deadline);
+      const daysLeft = Math.ceil((deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysLeft < 0) {
+        alerts.push({
+          id: `deadline-overdue-${p.id}`,
+          type: 'deadline',
+          severity: 'critical',
+          title: `${p.name} har passerat deadline`,
+          description: `Deadline var ${p.deadline} (${Math.abs(daysLeft)} dagar sedan). Kund: ${p.client}`,
+          link: `/projects/${p.id}`,
+          icon: XCircle,
+        });
+      } else if (daysLeft <= 3) {
+        alerts.push({
+          id: `deadline-soon-${p.id}`,
+          type: 'deadline',
+          severity: 'critical',
+          title: `${p.name} – deadline om ${daysLeft} dag${daysLeft !== 1 ? 'ar' : ''}`,
+          description: `Deadline: ${p.deadline}. Status: ${p.status === 'working' ? 'Pågår' : p.status === 'stuck' ? 'Blockerad' : p.status}`,
+          link: `/projects/${p.id}`,
+          icon: CalendarClock,
+        });
+      } else if (daysLeft <= 7) {
+        alerts.push({
+          id: `deadline-week-${p.id}`,
+          type: 'deadline',
+          severity: 'warning',
+          title: `${p.name} – deadline om ${daysLeft} dagar`,
+          description: `Kund: ${p.client}. Ansvarig: ${p.assignee}`,
+          link: `/projects/${p.id}`,
+          icon: CalendarClock,
+        });
+      }
+    });
+
+    // Budget alerts
+    projects.forEach(p => {
+      if (p.status === 'done' || p.budget <= 0) return;
+      const pct = Math.round((p.spent / p.budget) * 100);
+      if (pct >= 100) {
+        alerts.push({
+          id: `budget-over-${p.id}`,
+          type: 'budget',
+          severity: 'critical',
+          title: `${p.name} – budget överskriden`,
+          description: `Spenderat ${p.spent.toLocaleString('sv-SE')} kr av ${p.budget.toLocaleString('sv-SE')} kr (${pct}%)`,
+          link: `/projects/${p.id}`,
+          icon: AlertTriangle,
+        });
+      } else if (pct >= 80) {
+        alerts.push({
+          id: `budget-warn-${p.id}`,
+          type: 'budget',
+          severity: 'warning',
+          title: `${p.name} – ${pct}% av budget använd`,
+          description: `${(p.budget - p.spent).toLocaleString('sv-SE')} kr kvar. Kund: ${p.client}`,
+          link: `/projects/${p.id}`,
+          icon: AlertTriangle,
+        });
+      }
+    });
+
+    // Blocked projects
+    projects.forEach(p => {
+      if (p.status === 'stuck') {
+        alerts.push({
+          id: `blocked-${p.id}`,
+          type: 'blocked',
+          severity: 'warning',
+          title: `${p.name} är blockerat`,
+          description: `Ansvarig: ${p.assignee}. Kund: ${p.client}`,
+          link: `/projects/${p.id}`,
+          icon: AlertCircle,
+        });
+      }
+    });
+
+    // Stagnant leads (no update in 14+ days)
+    salesLeads.forEach(l => {
+      if (l.stage === 'won' || l.stage === 'lost') return;
+      const updated = new Date(l.updatedAt);
+      const daysSinceUpdate = Math.ceil((now.getTime() - updated.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysSinceUpdate >= 14) {
+        alerts.push({
+          id: `stagnant-${l.id}`,
+          type: 'stagnant',
+          severity: daysSinceUpdate >= 30 ? 'warning' : 'info',
+          title: `${l.company} – lead inaktiv i ${daysSinceUpdate} dagar`,
+          description: `Steg: ${l.stage === 'lead' ? 'Lead' : l.stage === 'contact' ? 'Kontaktad' : l.stage === 'offer' ? 'Offert' : 'Förhandling'}. Ansvarig: ${l.assignee}`,
+          link: '/sales',
+          icon: Hourglass,
+        });
+      }
+    });
+
+    // Overdue invoices
+    invoices.forEach(inv => {
+      if (inv.status === 'overdue') {
+        alerts.push({
+          id: `invoice-overdue-${inv.id}`,
+          type: 'overdue',
+          severity: 'critical',
+          title: `Faktura ${inv.invoiceNumber} förfallen`,
+          description: `${inv.customerName} – ${inv.totalAmount.toLocaleString('sv-SE')} kr. Förfallodag: ${inv.dueDate}`,
+          link: '/sales',
+          icon: FileText,
+        });
+      }
+    });
+
+    // Opportunity: contacts nearing end date
+    contacts.forEach(c => {
+      if (!c.endDate || c.status !== 'active') return;
+      const endDate = new Date(c.endDate);
+      const daysLeft = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysLeft > 0 && daysLeft <= 30) {
+        alerts.push({
+          id: `opportunity-${c.id}`,
+          type: 'opportunity',
+          severity: 'info',
+          title: `${c.name} – avtal löper ut om ${daysLeft} dagar`,
+          description: `Tjänst: ${c.service}. Säljare: ${c.seller || '—'}. Möjlighet till förlängning/uppsäljning.`,
+          link: '/contacts',
+          icon: Sparkles,
+        });
+      }
+    });
+
+    // Sort: critical first, then warning, then info
+    const severityOrder = { critical: 0, warning: 1, info: 2 };
+    return alerts.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+  }, [projects, salesLeads, invoices, contacts]);
+
+  const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem('marketflow_dismissed_alerts');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch { return new Set(); }
+  });
+
+  const visibleAlerts = smartAlerts.filter(a => !dismissedAlerts.has(a.id));
+  const criticalCount = visibleAlerts.filter(a => a.severity === 'critical').length;
+  const warningCount = visibleAlerts.filter(a => a.severity === 'warning').length;
+
+  const dismissAlert = (id: string) => {
+    setDismissedAlerts(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      localStorage.setItem('marketflow_dismissed_alerts', JSON.stringify([...next]));
+      return next;
+    });
+  };
+
+  const clearDismissed = () => {
+    setDismissedAlerts(new Set());
+    localStorage.removeItem('marketflow_dismissed_alerts');
+  };
+
   // Activity stream (simulated)
   const activities = [
     { icon: CheckCircle2, text: 'SEO Kampanj - TechStart AB flyttad till Pågår', time: '2 min sedan', color: 'text-emerald-500' },
@@ -156,13 +344,6 @@ export default function Dashboard() {
     { icon: TrendingUp, text: 'SEO ranking upp 5 positioner - HealthPlus', time: '4 timmar sedan', color: 'text-emerald-500' },
     { icon: Zap, text: 'Automation kördes: Välkomstflöde ny kund', time: '5 timmar sedan', color: 'text-amber-500' },
     { icon: MessageSquare, text: 'Ny Google-recension (5★) - TechStart AB', time: '6 timmar sedan', color: 'text-emerald-500' },
-  ];
-
-  // AI Insights
-  const insights = [
-    { type: 'opportunity', text: 'Nordic Food kan vara redo för uppsäljning av Meta Ads - kontraktet löper ut om 30 dagar', confidence: 85 },
-    { type: 'risk', text: 'GreenEnergy har överskridit 80% av budget med 40% arbete kvar', confidence: 92 },
-    { type: 'forecast', text: 'Baserat på pipeline förväntas intäkterna öka 12% nästa kvartal', confidence: 74 },
   ];
 
   const statusCounts = projects.reduce<Record<string, number>>((acc, p) => {
@@ -209,32 +390,75 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* AI Insights Banner */}
-      <motion.div variants={item}>
-        <Card className="border-violet-500/20 bg-gradient-to-r from-violet-500/5 via-transparent to-blue-500/5">
-          <CardContent className="py-4">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="p-1.5 rounded-lg bg-violet-500/10">
-                <Brain className="h-4 w-4 text-violet-500" />
-              </div>
-              <h3 className="font-heading font-semibold text-sm">AI Insikter</h3>
-              <Badge variant="outline" className="text-[10px] bg-violet-500/10 text-violet-600 border-violet-500/20">Beta</Badge>
-            </div>
-            <div className="grid gap-2">
-              {insights.map((insight, i) => (
-                <div key={i} className="flex items-start gap-3 text-sm">
-                  <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${
-                    insight.type === 'opportunity' ? 'bg-emerald-500' :
-                    insight.type === 'risk' ? 'bg-red-500' : 'bg-blue-500'
-                  }`} />
-                  <span className="text-muted-foreground flex-1">{insight.text}</span>
-                  <span className="text-[10px] text-muted-foreground/60 shrink-0 tabular-nums">{insight.confidence}% konfidens</span>
+      {/* Smart Alerts */}
+      {visibleAlerts.length > 0 && (
+        <motion.div variants={item}>
+          <Card className={`overflow-hidden ${criticalCount > 0 ? 'border-red-500/30 bg-gradient-to-r from-red-500/5 via-transparent to-amber-500/5' : 'border-amber-500/20 bg-gradient-to-r from-amber-500/5 via-transparent to-blue-500/5'}`}>
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className={`p-1.5 rounded-lg ${criticalCount > 0 ? 'bg-red-500/10' : 'bg-amber-500/10'}`}>
+                    <BellRing className={`h-4 w-4 ${criticalCount > 0 ? 'text-red-500' : 'text-amber-500'}`} />
+                  </div>
+                  <h3 className="font-heading font-semibold text-sm">Smart Alerts</h3>
+                  <div className="flex gap-1.5">
+                    {criticalCount > 0 && <Badge className="text-[10px] bg-red-500/10 text-red-600 border-red-500/20">{criticalCount} kritisk{criticalCount !== 1 ? 'a' : ''}</Badge>}
+                    {warningCount > 0 && <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/20">{warningCount} varning{warningCount !== 1 ? 'ar' : ''}</Badge>}
+                  </div>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
+                {dismissedAlerts.size > 0 && (
+                  <button onClick={clearDismissed} className="text-[10px] text-muted-foreground hover:text-foreground">
+                    Visa avfärdade ({dismissedAlerts.size})
+                  </button>
+                )}
+              </div>
+              <div className="space-y-2">
+                <AnimatePresence>
+                  {visibleAlerts.slice(0, 8).map(alert => (
+                    <motion.div
+                      key={alert.id}
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                    >
+                      <Link to={alert.link} className="block group">
+                        <div className={`flex items-start gap-3 p-2.5 rounded-lg transition-colors hover:bg-muted/50 ${
+                          alert.severity === 'critical' ? 'bg-red-500/5' :
+                          alert.severity === 'warning' ? 'bg-amber-500/5' : 'bg-blue-500/5'
+                        }`}>
+                          <alert.icon className={`h-4 w-4 mt-0.5 shrink-0 ${
+                            alert.severity === 'critical' ? 'text-red-500' :
+                            alert.severity === 'warning' ? 'text-amber-500' : 'text-blue-500'
+                          }`} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium group-hover:text-primary transition-colors">{alert.title}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{alert.description}</p>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <button
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); dismissAlert(alert.id); }}
+                              className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                              title="Avfärda"
+                            >
+                              <XCircle className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </Link>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+                {visibleAlerts.length > 8 && (
+                  <p className="text-xs text-muted-foreground text-center pt-1">
+                    +{visibleAlerts.length - 8} fler alerts
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       {/* Quick sales summary */}
       <motion.div variants={item}>
