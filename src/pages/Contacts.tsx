@@ -22,7 +22,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import {
   Search, Plus, ExternalLink, Star, Globe, Upload, FileText, X, ChevronDown, Trash2, Phone, Mail, Eye, EyeOff,
-  MessageSquare, Send, PlusCircle, Type, Hash, CalendarDays, ListChecks, GripVertical,
+  MessageSquare, Send, PlusCircle, Type, Hash, CalendarDays, ListChecks, GripVertical, Download,
 } from 'lucide-react';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 
@@ -526,6 +526,59 @@ export default function Contacts() {
     }
   };
 
+  // Export contacts to CSV with all custom columns
+  const handleExportCSV = useCallback(() => {
+    if (contacts.length === 0) {
+      toast.error('Inga kunder att exportera');
+      return;
+    }
+
+    const escapeCsv = (val: any): string => {
+      if (val === null || val === undefined) return '';
+      const str = String(val);
+      if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes(';')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const standardHeaders = [
+      'Namn', 'Hemsida', 'Plattform', 'Budget (k kr)', 'Rating', 'Kontaktperson',
+      'Säljare', 'Tjänst', 'Status', 'Startdatum', 'Slutdatum', 'Telefon',
+      'E-post', 'Google Ads Customer ID', 'Har rapport', 'Kommentar',
+    ];
+    const customHeaders = customColumns.map(c => c.label);
+    const headers = [...standardHeaders, ...customHeaders];
+
+    const statusLabels: Record<string, string> = {
+      active: 'Aktiv', paused: 'Pausad', completed: 'Avslutad', pending: 'Väntande',
+    };
+
+    const rows = contacts.map(c => {
+      const standardCells = [
+        c.name, c.website, c.platform, c.budget, c.rating, c.contactPerson,
+        c.seller, c.service, statusLabels[c.status] || c.status, c.startDate, c.endDate,
+        c.phone, (c.emails || []).join('; '), c.googleAdsCustomerId,
+        c.hasReport ? 'Ja' : 'Nej', c.comment,
+      ];
+      const customCells = customColumns.map(col => (customData[c.id] && customData[c.id][col.id]) || '');
+      return [...standardCells, ...customCells].map(escapeCsv).join(',');
+    });
+
+    const csv = '﻿' + [headers.map(escapeCsv).join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const date = new Date().toISOString().split('T')[0];
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `kundlista_${date}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success(`${contacts.length} kunder exporterade till CSV`);
+  }, [contacts, customColumns, customData]);
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
       {/* Header */}
@@ -534,9 +587,14 @@ export default function Contacts() {
           <h1 className="text-2xl font-heading font-bold">Kontakter</h1>
           <p className="text-muted-foreground text-sm">{contacts.length} kunder · {totalBudget.toLocaleString('sv-SE')} kr total budget</p>
         </div>
-        <Button onClick={() => setIsAddOpen(true)} className="rounded-xl">
-          <Plus className="h-4 w-4 mr-2" /> Lägg till kund
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={handleExportCSV} variant="outline" className="rounded-xl">
+            <Download className="h-4 w-4 mr-2" /> Exportera CSV
+          </Button>
+          <Button onClick={() => setIsAddOpen(true)} className="rounded-xl">
+            <Plus className="h-4 w-4 mr-2" /> Lägg till kund
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
