@@ -25,6 +25,7 @@ import {
   MessageSquare, Send, PlusCircle, Type, Hash, CalendarDays, ListChecks, GripVertical, Download,
 } from 'lucide-react';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
+import * as XLSX from 'xlsx';
 
 // ── Comments system ──
 interface ContactComment {
@@ -526,58 +527,95 @@ export default function Contacts() {
     }
   };
 
-  // Export contacts to CSV with all custom columns
+  // Export contacts to Excel (.xlsx) with ALL columns matching the CRM view
   const handleExportCSV = useCallback(() => {
     if (contacts.length === 0) {
       toast.error('Inga kunder att exportera');
       return;
     }
 
-    const escapeCsv = (val: any): string => {
-      if (val === null || val === undefined) return '';
-      const str = String(val);
-      if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes(';')) {
-        return `"${str.replace(/"/g, '""')}"`;
-      }
-      return str;
-    };
-
-    const standardHeaders = [
-      'Namn', 'Hemsida', 'Plattform', 'Budget (k kr)', 'Rating', 'Kontaktperson',
-      'Säljare', 'Tjänst', 'Status', 'Startdatum', 'Slutdatum', 'Telefon',
-      'E-post', 'Google Ads Customer ID', 'Har rapport', 'Kommentar',
-    ];
-    const customHeaders = customColumns.map(c => c.label);
-    const headers = [...standardHeaders, ...customHeaders];
-
     const statusLabels: Record<string, string> = {
       active: 'Aktiv', paused: 'Pausad', completed: 'Avslutad', pending: 'Väntande',
     };
 
+    // Build rows matching the CRM table structure exactly
     const rows = contacts.map(c => {
-      const standardCells = [
-        c.name, c.website, c.platform, c.budget, c.rating, c.contactPerson,
-        c.seller, c.service, statusLabels[c.status] || c.status, c.startDate, c.endDate,
-        c.phone, (c.emails || []).join('; '), c.googleAdsCustomerId,
-        c.hasReport ? 'Ja' : 'Nej', c.comment,
-      ];
-      const customCells = customColumns.map(col => (customData[c.id] && customData[c.id][col.id]) || '');
-      return [...standardCells, ...customCells].map(escapeCsv).join(',');
+      const commentCount = allComments.filter(cm => cm.contactId === c.id).length;
+      const emailStr = (c.emails || []).filter(Boolean).join('; ');
+
+      const row: Record<string, any> = {
+        'Kund': c.name || '',
+        'Kontaktperson': c.contactPerson || '',
+        'Telefon': c.phone || '',
+        'E-post': emailStr,
+        'Tjänst': c.service || '',
+        'Plattform': c.platform || '',
+        'Budget (kr)': c.budget || 0,
+        'Säljare': c.seller || '',
+        'Status': statusLabels[c.status] || c.status || '',
+        'Rating': c.rating || 0,
+        'Kommentarer (antal)': commentCount,
+        'Startdatum': c.startDate || '',
+        'Slutdatum': c.endDate || '',
+        'Webbplats': c.website || '',
+        'Google Ads ID': c.googleAdsCustomerId || '',
+        'Notering': c.comment || '',
+        'Har rapport': c.hasReport ? 'Ja' : 'Nej',
+      };
+
+      // Append any user-defined custom columns
+      customColumns.forEach(col => {
+        row[col.label] = (customData[c.id] && customData[c.id][col.id]) || '';
+      });
+
+      return row;
     });
 
-    const csv = '﻿' + [headers.map(escapeCsv).join(','), ...rows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
+    // Create workbook
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+
+    // Set column widths based on content
+    const colWidths = [
+      { wch: 28 }, { wch: 20 }, { wch: 14 }, { wch: 28 }, { wch: 24 }, { wch: 16 },
+      { wch: 14 }, { wch: 18 }, { wch: 12 }, { wch: 8 }, { wch: 14 }, { wch: 12 },
+      { wch: 12 }, { wch: 32 }, { wch: 16 }, { wch: 40 }, { wch: 11 },
+      ...customColumns.map(() => ({ wch: 18 })),
+    ];
+    worksheet['!cols'] = colWidths;
+
+    // Freeze header row
+    worksheet['!views'] = [{ state: 'frozen', ySplit: 1, xSplit: 1 }];
+
+    // Auto-filter on all columns
+    const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+    worksheet['!autofilter'] = { ref: XLSX.utils.encode_range(range) };
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Kunder');
+
+    // Separate sheet with just the stats summary
+    const activeCount = contacts.filter(c => c.status === 'active').length;
+    const pausedCount = contacts.filter(c => c.status === 'paused').length;
+    const pendingCount = contacts.filter(c => c.status === 'pending').length;
+    const completedCount = contacts.filter(c => c.status === 'completed').length;
+    const summaryRows = [
+      { Statistik: 'Totalt antal kunder', Värde: contacts.length },
+      { Statistik: 'Aktiva', Värde: activeCount },
+      { Statistik: 'Pausade', Värde: pausedCount },
+      { Statistik: 'Väntande', Värde: pendingCount },
+      { Statistik: 'Avslutade', Värde: completedCount },
+      { Statistik: 'Total budget (kr)', Värde: contacts.reduce((s, c) => s + (c.budget || 0), 0) },
+      { Statistik: 'Export skapad', Värde: new Date().toLocaleString('sv-SE') },
+    ];
+    const summarySheet = XLSX.utils.json_to_sheet(summaryRows);
+    summarySheet['!cols'] = [{ wch: 24 }, { wch: 24 }];
+    XLSX.utils.book_append_sheet(workbook, summarySheet, 'Sammanfattning');
+
+    // Download
     const date = new Date().toISOString().split('T')[0];
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `kundlista_${date}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    toast.success(`${contacts.length} kunder exporterade till CSV`);
-  }, [contacts, customColumns, customData]);
+    XLSX.writeFile(workbook, `kundlista_${date}.xlsx`);
+    toast.success(`${contacts.length} kunder exporterade till Excel`);
+  }, [contacts, customColumns, customData, allComments]);
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
@@ -589,7 +627,7 @@ export default function Contacts() {
         </div>
         <div className="flex gap-2">
           <Button onClick={handleExportCSV} variant="outline" className="rounded-xl">
-            <Download className="h-4 w-4 mr-2" /> Exportera CSV
+            <Download className="h-4 w-4 mr-2" /> Exportera Excel
           </Button>
           <Button onClick={() => setIsAddOpen(true)} className="rounded-xl">
             <Plus className="h-4 w-4 mr-2" /> Lägg till kund
